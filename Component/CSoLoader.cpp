@@ -1,7 +1,7 @@
 #include "ILibLoader.h"
 #include "IPycaiLogger.h"
 
-class CDllLoader : public ILibLoader
+class CSoLoader : public ILibLoader
 {
 public:
     class CFactory : public ILibLoader::IFactory
@@ -18,17 +18,17 @@ public:
 
         const char* GetClassId() const override
         {
-            return "CDllLoader";
+            return "CSoLoader";
         }
 
 	IUnknowObject* Create()
         {
-            return new CDllLoader();
+            return new CSoLoader();
         }
     };
 
-    CDllLoader() {}
-    virtual ~CDllLoader() {}
+    CSoLoader() {}
+    virtual ~CSoLoader() {}
 
     const char* GetConfig(const char*) const override
     {
@@ -58,12 +58,12 @@ public:
     }
 };
 
-void CDllLoaderInit()
+void CSoLoaderInit()
 {
-    static CDllLoader::CFactory instance;
+    static CSoLoader::CFactory instance;
 }
 
-void CDllLoaderUninit()
+void CSoLoaderUninit()
 {
 }
 
