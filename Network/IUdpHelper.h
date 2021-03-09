@@ -33,6 +33,9 @@ public:
 
     virtual int GetPeerPort() const = 0;
     virtual void SetPeerPort(int port) = 0;
+    
+    virtual int Send(char* buf, int len) = 0;
+    virtual int Recv(char* buf, int len) = 0;
 };
 
 #endif
