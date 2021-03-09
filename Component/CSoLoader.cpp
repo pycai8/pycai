@@ -1,3 +1,6 @@
+#include <string>
+#include <dlfcn.h>
+
 #include "ILibLoader.h"
 #include "IPycaiLogger.h"
 
@@ -47,14 +50,20 @@ public:
 
     bool Load(const char* file) override
     {
-        PYCAI_DEBUG("load dll[%s] success.", file);
+        auto ret = dlopen(file, RTLD_NOW | RTLD_LOCAL);
+	std::string err = dlerror();
+	if (ret == 0) {
+		PYCAI_ERROR("dlopen(%s) fail, %s", file, err.c_str());
+		return false;
+	}
+        PYCAI_DEBUG("dlopen(%s) success.", file);
         return true;
     }
 
     bool Free(const char* file) override
     {
-        PYCAI_DEBUG("free dll[%s] success.", file);
-        return true;
+        PYCAI_ERROR("free dll[%s] fail, not implementation.", file);
+        return false;
     }
 };
 
