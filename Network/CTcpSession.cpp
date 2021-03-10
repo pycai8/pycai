@@ -14,7 +14,7 @@ public:
         {
             RegisterFactory();
         }
-    virtual ~CFactory()
+        virtual ~CFactory()
         {
             UnregisterFactory();
         }
@@ -24,7 +24,7 @@ public:
             return "CTcpSession";
         }
 
-    IUnknowObject* Create()
+        IUnknowObject* Create()
         {
             return new CTcpSession();
         }
@@ -56,18 +56,18 @@ public:
     {
         skt_ = skt;
 
-    pthread_attr_t attr;
-    int ret = pthread_attr_init(&attr);
-    if (ret != 0) PYCAI_ERROR("pthread_attr_init fail, socket[%d], ret[%d]", skt_, ret);
-    ret = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    if (ret != 0) PYCAI_ERROR("pthread_attr_setdetachstate fail, socket[%d], ret[%d]", skt_, ret);
+        pthread_attr_t attr;
+        int ret = pthread_attr_init(&attr);
+        if (ret != 0) PYCAI_ERROR("pthread_attr_init fail, socket[%d], ret[%d]", skt_, ret);
+        ret = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+        if (ret != 0) PYCAI_ERROR("pthread_attr_setdetachstate fail, socket[%d], ret[%d]", skt_, ret);
 
-    pthread_t th;
-    int result = pthread_create(&th, &attr, entry, this);
-    if (result != 0) PYCAI_ERROR("pthread_create fail, socket[%d], ret[%d]", skt_, result);
-    ret = pthread_attr_destroy(&attr);
-    if (ret != 0) PYCAI_ERROR("pthread_attr_destroy fail, socket[%d], ret[%d]", skt_, ret);
-    return (result == 0); // equal to thread create success.
+        pthread_t th;
+        int result = pthread_create(&th, &attr, entry, this);
+        if (result != 0) PYCAI_ERROR("pthread_create fail, socket[%d], ret[%d]", skt_, result);
+        ret = pthread_attr_destroy(&attr);
+        if (ret != 0) PYCAI_ERROR("pthread_attr_destroy fail, socket[%d], ret[%d]", skt_, ret);
+        return (result == 0); // equal to thread create success.
     }
 
 private:
