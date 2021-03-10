@@ -17,7 +17,7 @@ Content-Length: 180
 Content-Type: application/sdp
 
 v=0
-o=- 91615377117 1 IN IP4 172.21.39.81
+o=- 91615389686 1 IN IP4 172.21.39.81
 t=0 0
 a=control:*
 a=type:broadcast
@@ -29,22 +29,30 @@ a=control:track0
 SETUP rtsp://39.104.53.249:8554/live/track0 RTSP/1.0
 CSeq: 4
 User-Agent: LibVLC/3.0.12 (LIVE555 Streaming Media v2016.11.28)
-Transport: RTP/AVP;unicast;client_port=51322-51323
+Transport: RTP/AVP;unicast;client_port=53626-53627
 
 RTSP/1.0 200 OK
 CSeq: 4
-Transport: RTP/AVP;unicast;client_port=51322-51323;server_port=56400-56401
-Session: 66334873
+Transport: RTP/AVP;unicast;client_port=53626-53627;server_port=39016-39017
+Session: 327b23c6
 
 PLAY rtsp://39.104.53.249:8554/live RTSP/1.0
 CSeq: 5
 User-Agent: LibVLC/3.0.12 (LIVE555 Streaming Media v2016.11.28)
-Session: 66334873
+Session: 327b23c6
 Range: npt=0.000-
 
 RTSP/1.0 200 OK
 CSeq: 5
 Range: npt=0.000-
-Session: 66334873; timeout=60
+Session: 327b23c6; timeout=60
+
+TEARDOWN rtsp://39.104.53.249:8554/live RTSP/1.0
+CSeq: 6
+User-Agent: LibVLC/3.0.12 (LIVE555 Streaming Media v2016.11.28)
+Session: 327b23c6
+
+RTSP/1.0 200 OK
+CSeq: 6
 
 
