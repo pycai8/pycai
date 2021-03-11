@@ -10,7 +10,6 @@ public:
     class IFactory : public IUnknowFactory
     {
     public:
-        virtual ~IFactory() {}
         static const char* StaticInterfaceId()
         {
             return "IMediaSession";
@@ -21,8 +20,7 @@ public:
         }
     };
 
-    virtual ~IMediaSession() {}
-    virtual void Init(IUdpHelper* value) = 0;
+    virtual bool Init(IUdpHelper* value) = 0;
     virtual bool Start(const char* file) = 0;
     virtual bool Stop() = 0;
 };
