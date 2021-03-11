@@ -23,7 +23,8 @@ public:
 
     virtual ~IMediaSession() {}
     virtual void Init(IUdpHelper* value) = 0;
-    virtual bool Run(const char* file) = 0;
+    virtual bool Start(const char* file) = 0;
+    virtual bool Stop() = 0;
 };
 
 #endif
