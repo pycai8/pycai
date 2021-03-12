@@ -1,5 +1,7 @@
 #include <string>
-#include <dlfcn.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <string.h>
 
 #include "IMediaSession.h"
 #include "IPycaiLogger.h"
@@ -59,15 +61,15 @@ public:
         run_ = true;
         pthread_attr_t attr;
         int ret = pthread_attr_init(&attr);
-        if (ret != 0) PYCAI_ERROR("pthread_attr_init fail, socket[%d], ret[%d]", skt_, ret);
+        if (ret != 0) PYCAI_ERROR("pthread_attr_init fail, ret[%d]", ret);
         ret = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-        if (ret != 0) PYCAI_ERROR("pthread_attr_setdetachstate fail, socket[%d], ret[%d]", skt_, ret);
+        if (ret != 0) PYCAI_ERROR("pthread_attr_setdetachstate fail, ret[%d]", ret);
 
         pthread_t th;
         int result = pthread_create(&th, &attr, entry, this);
-        if (result != 0) PYCAI_ERROR("pthread_create fail, socket[%d], ret[%d]", skt_, result);
+        if (result != 0) PYCAI_ERROR("pthread_create fail, ret[%d]", result);
         ret = pthread_attr_destroy(&attr);
-        if (ret != 0) PYCAI_ERROR("pthread_attr_destroy fail, socket[%d], ret[%d]", skt_, ret);
+        if (ret != 0) PYCAI_ERROR("pthread_attr_destroy fail, ret[%d]", ret);
         return (result == 0); // equal to thread create success.
     }
 

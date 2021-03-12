@@ -1,3 +1,4 @@
+#include "ITcpServer.h"
 #include "ILibLoader.h"
 #include "IPycaiLogger.h"
 
@@ -10,9 +11,17 @@ int main()
     }
     
     loader->Load("../Network/libNetwork.so");
-    loader->Free("../Network/libNetwork.so");
+    loader->Load("../Rtsp/libRtsp.so");
     loader->Destroy();
-    PYCAI_INFO("test component success.");
+
+    ITcpServer* server = CreateComponentObject<ITcpServer>("CTcpServer");
+    if (!server) {
+        PYCAI_ERROR("create CTcpServer fail.");
+        return -1;
+    }
+
+    PYCAI_INFO("ready to start rtsp server ...");
+    server->Listen("172.21.39.81", 8554);
     return 0;
 }
 

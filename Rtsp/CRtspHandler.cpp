@@ -1,5 +1,6 @@
 #include <string>
 
+#include "IMediaSession.h"
 #include "IRtspHandler.h"
 #include "IPycaiLogger.h"
 
@@ -65,13 +66,13 @@ public:
 
     std::string Handle(const std::string& req) override
     {
-        std:string reqType = GetRequestType(req);
+        std::string reqType = GetRequestType(req);
         int seq = GetRequestSequence(req);
-        if (req == "OPTIONS") return HandleOptions(req, seq);
-        if (req == "DESCRIBE") return HandleDescribe(req, seq);
-        if (req == "SETUP") return HandleSetup(req, seq);
-        if (req == "PLAY") return HandlePlay(req, seq);
-        if (req == "TEARDOWN") return HandleTeardown(req, seq);
+        if (reqType == "OPTIONS") return HandleOptions(req, seq);
+        if (reqType == "DESCRIBE") return HandleDescribe(req, seq);
+        if (reqType == "SETUP") return HandleSetup(req, seq);
+        if (reqType == "PLAY") return HandlePlay(req, seq);
+        if (reqType == "TEARDOWN") return HandleTeardown(req, seq);
         PYCAI_ERROR("request[%s] not support.", reqType.c_str());
         return "";
     }
@@ -111,11 +112,13 @@ private:
         rtcpPeerPort_ = 0;
         bool flag = false;
         for (int i = pos; i < req.size() && req[i] != ';' && req[i] != '\r' && req[i] != '\n'; ++i) {
-            if (req[i] == '-') flag == true;
+            if (req[i] == '-') flag = true;
             if (!('0' <= req[i] && req[i] <= '9')) continue;
             if (flag) rtcpPeerPort_ = rtcpPeerPort_ * 10 + (req[i] - '0');
             else rtpPeerPort_ = rtpPeerPort_ * 10 + (req[i] - '0');
         }
+	
+	PYCAI_INFO("parse client port, rtcpPeerPort=%d, rtpPeerPort=%d", rtcpPeerPort_, rtpPeerPort_);
     }
 
     std::string HandleOptions(const std::string& req, int seq)

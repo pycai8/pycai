@@ -1,5 +1,11 @@
+#include <unistd.h>
 #include <string>
-#include <dlfcn.h>
+#include <string.h>
+#include <errno.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "IUdpHelper.h"
 #include "IPycaiLogger.h"
@@ -131,13 +137,13 @@ public:
             return -1;
         }
 
-        std::string ip = inet_ntoa(addr.sin_addr.s_addr);
+        std::string ip = inet_ntoa(addr.sin_addr);
         int port = ntohs(addr.sin_port);
         if (ip != peerIp_ || port != peerPort_) {
-            PYCAI_ERROR("recv target error, error[%s:%d], should[%s:%d]", ip.c_str(), port, peerIp_.c_str(), peerPort_);
-            return -1;
+            PYCAI_WARN("recv not target peer, change to [%s:%d] from [%s:%d]", ip.c_str(), port, peerIp_.c_str(), peerPort_);
         }
-
+        peerIp_ = ip;
+	peerPort_ = port;
         return (int)ret;
     }
 
@@ -146,7 +152,7 @@ private:
     {
         if (skt_ >= 0) return true;
 
-        if (localIp.empty() || localPort_ <= 0) {
+        if (localIp_.empty() || localPort_ <= 0) {
             PYCAI_ERROR("local ip or port error.");
             return false;
         }
@@ -160,7 +166,7 @@ private:
 
         struct sockaddr_in addr = { 0 };
         addr.sin_family = AF_INET;
-        addr.sin_port = htons(port);
+        addr.sin_port = htons(localPort_);
         addr.sin_addr.s_addr = inet_addr(localIp_.c_str());
         int ret = bind(skt, (struct sockaddr*)&addr, sizeof(addr));
         err = errno;

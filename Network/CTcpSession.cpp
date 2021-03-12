@@ -1,6 +1,13 @@
+#include <unistd.h>
 #include <string>
-#include <dlfcn.h>
+#include <string.h>
+#include <errno.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
+#include "IRtspHandler.h"
 #include "ITcpSession.h"
 #include "IPycaiLogger.h"
 
@@ -40,10 +47,10 @@ public:
 
     bool SetConfig(const char* key, const char* value) override
     {
-        if (std::string(key) == "local.ip") return SetLocalIp(value);
-    if (std::string(key) == "local.port") return SetLocalPort(value);
-    if (std::string(key) == "peer.ip") return SetPeerIp(value);
-    if (std::string(key) == "peer.port") return SetPeerPort(value);
+        if (std::string(key) == "local.ip") { localIp_ = value; return true; }
+        if (std::string(key) == "local.port") { localPort_ = (int)(unsigned long)value; return true; }
+        if (std::string(key) == "peer.ip") { peerIp_ = value; return true; }
+        if (std::string(key) == "peer.port") { peerPort_ = (int)(unsigned long)value; return true; }
         return false;
     }
 

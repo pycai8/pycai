@@ -51,8 +51,8 @@ public:
     bool Load(const char* file) override
     {
         auto ret = dlopen(file, RTLD_NOW | RTLD_LOCAL);
-	std::string err = dlerror();
 	if (ret == 0) {
+	        std::string err = dlerror();
 		PYCAI_ERROR("dlopen(%s) fail, %s", file, err.c_str());
 		return false;
 	}

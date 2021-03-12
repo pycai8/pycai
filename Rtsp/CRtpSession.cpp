@@ -1,8 +1,12 @@
 #include <string>
-#include <dlfcn.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <string.h>
 
 #include "IMediaSession.h"
 #include "IPycaiLogger.h"
+
+#define MTU 1400
 
 typedef struct {
     /* byte 0 */
@@ -78,15 +82,15 @@ public:
         run_ = true;
         pthread_attr_t attr;
         int ret = pthread_attr_init(&attr);
-        if (ret != 0) PYCAI_ERROR("pthread_attr_init fail, socket[%d], ret[%d]", skt_, ret);
+        if (ret != 0) PYCAI_ERROR("pthread_attr_init fail, ret[%d]", ret);
         ret = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-        if (ret != 0) PYCAI_ERROR("pthread_attr_setdetachstate fail, socket[%d], ret[%d]", skt_, ret);
+        if (ret != 0) PYCAI_ERROR("pthread_attr_setdetachstate fail, ret[%d]", ret);
 
         pthread_t th;
         int result = pthread_create(&th, &attr, entry, this);
-        if (result != 0) PYCAI_ERROR("pthread_create fail, socket[%d], ret[%d]", skt_, result);
+        if (result != 0) PYCAI_ERROR("pthread_create fail, ret[%d]", result);
         ret = pthread_attr_destroy(&attr);
-        if (ret != 0) PYCAI_ERROR("pthread_attr_destroy fail, socket[%d], ret[%d]", skt_, ret);
+        if (ret != 0) PYCAI_ERROR("pthread_attr_destroy fail, ret[%d]", ret);
         return (result == 0); // equal to thread create success.
     }
 
@@ -111,6 +115,11 @@ private:
 
     void Loop()
     {
+        PYCAI_INFO("enter rtp session loop.");
+        char buf[1024] = { 0 };
+	int len = udp_->Recv(buf, sizeof(buf));
+	PYCAI_INFO("rtp session recv[%d]", len);
+
         FILE* fp = fopen(file_.c_str(), "r");
         int err = errno;
         if (!fp) {
@@ -229,7 +238,7 @@ private:
     std::string file_ = "";
     uint16_t seq_ = 1;
     uint32_t timestamp_ = 0;
-    uint32_t ssrc = rand();
+    uint32_t ssrc_ = rand();
 };
 
 void CRtpSessionInit()

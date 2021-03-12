@@ -1,7 +1,15 @@
+#include <unistd.h>
 #include <string>
+#include <string.h>
+#include <errno.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "ITcpServer.h"
 #include "IPycaiLogger.h"
+#include "ITcpSession.h"
 
 class CTcpServer : public ITcpServer
 {
@@ -94,15 +102,15 @@ private:
         struct sockaddr_in tempAddr = { 0 };
         socklen_t tempLen = sizeof(tempAddr);
         int tempSkt = accept(skt, (struct sockaddr*)&tempAddr, &tempLen);
-        err = errno;
+        int err = errno;
         if (tempSkt < 0) {
             PYCAI_ERROR("accept fail, ip[%s], port[%d], ret[%d], msg[%s]", ip, port, tempSkt, strerror(err));
             return;
         }
 
-        std::string tempIp = inet_ntoa(tempAddr.sin_addr.s_addr);
+        std::string tempIp = inet_ntoa(tempAddr.sin_addr);
         int tempPort = ntohs(tempAddr.sin_port);
-        CTcpSession* tcpSession = CreateComponentObject<ITcpSession>("CTcpSession");
+        ITcpSession* tcpSession = CreateComponentObject<ITcpSession>("CTcpSession");
         if (!tcpSession) {
             PYCAI_ERROR("Create CTcpSession(%s:%d <--> %s:%d) fail", ip, port, tempIp.c_str(), tempPort);
             close(tempSkt);
