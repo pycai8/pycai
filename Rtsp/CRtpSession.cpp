@@ -4,6 +4,27 @@
 #include "IMediaSession.h"
 #include "IPycaiLogger.h"
 
+typedef struct {
+    /* byte 0 */
+    uint8_t csrcCount:4;
+    uint8_t extension:1;
+    uint8_t padding:1;
+    uint8_t version:2;
+
+    /* byte 1 */
+    uint8_t payloadType:7;
+    uint8_t marker:1;
+
+    /* byte 2 ~ 3 */
+    uint16_t seq;
+
+    /* byte 4 - 7 */
+    uint32_t timestamp;
+
+    /* byte 8 ~ 11 */
+    uint32_t ssrc;
+} RtpHeader;
+
 class CRtpSession : public IMediaSession
 {
 public:
@@ -139,16 +160,76 @@ private:
         }
 
         // frame start with "0 0 1" or "0 0 0 1"
-
+        int start = -1;
+        int end = -1;
+        for (int i = 0; i < sz; ++i) {
+            if (i + 2 < sz && inBuf[i + 0] == 0 && inBuf[i + 1] == 0 && inBuf[i + 2] == 1) {
+                if (start == -1) start = i + 3;
+                else if (end == -1) { end = i; break; }
+            } else if (i + 3 < sz && inBuf[i + 0] == 0 && inBuf[i + 1] == 0 && inBuf[i + 2] == 0 && inBuf[i + 3] == 1) {
+                if (start == -1) start = i + 4;
+                else if (end = -1) { end = i; break; }
+            }
+        }
+        if (start == -1) return false;
+        *outBuf = inBuf + start;
+        if (end == -1) {
+            *outLen = sz - start;
+            fseek(fp, 0, SEEK_SET); // to start position
+        } else {
+            *outLen = end - start;
+            fseek(fp, end - sz, SEEK_CUR);
+        }
+        return true;
     }
 
     bool SendOneFrame(char* buf, int len)
     {
+        uint8_t naluHeader = buf[0];
+        uint8_t naluType = naluHeader & 0x1F;
+        if (naluType != 7 && naluType != 8) {
+            // is not SPS and PPS => add timestamp
+            timestamp_ += 90000 / 25; // 90000 is ClockRate, 25 is framerate
+        }
+
+        if (len <= MTU) {
+            FillRtpHeader((RtpHeader*)(buf - 12)); // rtp header is 12 bytes
+            udp_->Send(buf - 12, len + 12);
+            return true;
+        }
+
+        int clipCount = len / MTU;
+        if (len % MTU != 0) clipCount++;
+        for (int i = 0; i < clipCount; ++i) {
+            FillRtpHeader((RtpHeader*)(buf - 12 - 2)); // 12 rtp header, 2 clip header
+            *(buf - 2) = (naluHeader & 0x60 ) | 28; // 0x60 get old important, 28 is clip
+            *(buf - 1) = (naluHeader & 0x1F); // 0x1F get old payload type
+            if (i == 0) *(buf - 1) |= 0x80; // 0x80 clip start
+            if (i == clipCount - 1) *(buf - 1) != 0x40; // 0x40 clip end 
+            udp_->Send(buf - 14, len + 14);
+        }
+        return true;
+    }
+
+    void FillRtpHeader(RtpHeader* hdr)
+    {
+        hdr->version = 2; // V=2
+        hdr->padding = 0; // no padding
+        hdr->extension = 0; // no extension
+        hdr->csrcCount = 0; // no extension, no csrc
+        hdr->marker = 0;
+        hdr->payloadType = 96; // H264
+        hdr->seq = htons(seq_++);
+        hdr->timestamp = htonl(timestamp_);
+        hdr->ssrc = htonl(ssrc_);
     }
 
     bool run_ = false;
     IUdpHelper* udp_ = 0;
     std::string file_ = "";
+    uint16_t seq_ = 1;
+    uint32_t timestamp_ = 0;
+    uint32_t ssrc = rand();
 };
 
 void CRtpSessionInit()
