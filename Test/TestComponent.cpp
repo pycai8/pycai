@@ -21,7 +21,7 @@ int main()
     }
 
     PYCAI_INFO("ready to start rtsp server ...");
-    server->Listen("172.21.39.81", 8554);
+    server->Listen("0.0.0.0", 8554);
     return 0;
 }
 

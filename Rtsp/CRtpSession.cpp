@@ -117,8 +117,8 @@ private:
     {
         PYCAI_INFO("enter rtp session loop.");
         char buf[1024] = { 0 };
-	int len = udp_->Recv(buf, sizeof(buf));
-	PYCAI_INFO("rtp session recv[%d]", len);
+    int len = udp_->Recv(buf, sizeof(buf));
+    PYCAI_INFO("rtp session recv[%d]", len);
 
         FILE* fp = fopen(file_.c_str(), "r");
         int err = errno;
@@ -209,13 +209,21 @@ private:
 
         int clipCount = len / MTU;
         if (len % MTU != 0) clipCount++;
+	buf++;
         for (int i = 0; i < clipCount; ++i) {
-            FillRtpHeader((RtpHeader*)(buf - 12 - 2)); // 12 rtp header, 2 clip header
-            *(buf - 2) = (naluHeader & 0x60 ) | 28; // 0x60 get old important, 28 is clip
-            *(buf - 1) = (naluHeader & 0x1F); // 0x1F get old payload type
-            if (i == 0) *(buf - 1) |= 0x80; // 0x80 clip start
-            if (i == clipCount - 1) *(buf - 1) != 0x40; // 0x40 clip end 
-            udp_->Send(buf - 14, len + 14);
+            char* clipBuf = buf + i * MTU;
+            int clipLen = 0;
+            if (len % MTU == 0) clipLen = MTU;
+            else if (i != clipCount - 1) clipLen = MTU;
+            else clipLen = len % MTU;
+
+            FillRtpHeader((RtpHeader*)(clipBuf - 12 - 2)); // 12 rtp header, 2 clip header
+            *(clipBuf - 2) = (naluHeader & 0x60 ) | 28; // 0x60 get old important, 28 is clip
+            *(clipBuf - 1) = (naluHeader & 0x1F); // 0x1F get old payload type
+            if (i == 0) *(clipBuf - 1) |= 0x80; // 0x80 clip start
+            if (i == clipCount - 1) *(clipBuf - 1) |= 0x40; // 0x40 clip end 
+            udp_->Send(clipBuf - 12 - 2, clipLen + 12 + 2); // 12 rtp header, 2 clip header
+            usleep(10000); // sleep 10ms
         }
         return true;
     }

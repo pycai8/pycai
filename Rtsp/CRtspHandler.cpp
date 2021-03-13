@@ -207,12 +207,15 @@ private:
         rtcpHelper->SetPeerPort(rtcpPeerPort_);
         rtcp_ = CreateComponentObject<IMediaSession>("CRtcpSession");
         rtcp_->Init(rtcpHelper);
+        
+	rtp_->Start("test.h264");
+        rtcp_->Start("test.h264");
     }
 
     void StartSessions()
     {
-        rtp_->Start("test.h264");
-        rtcp_->Start("test.h264");
+        //rtp_->Start("test.h264");
+        //rtcp_->Start("test.h264");
     }
 
     void StopSessions()

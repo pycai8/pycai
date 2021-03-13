@@ -105,7 +105,7 @@ public:
 
         struct sockaddr_in addr = { 0 };
         addr.sin_family = AF_INET;
-        addr.sin_port = peerPort_;
+        addr.sin_port = htons(peerPort_);
         addr.sin_addr.s_addr = inet_addr(peerIp_.c_str());
         ssize_t ret = sendto(skt_, buf, len, 0, (struct sockaddr*)&addr, sizeof(addr));
         int err = errno;
