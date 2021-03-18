@@ -1,13 +1,14 @@
 #include <string>
+#include <string.h>
 
 #include "IMediaSession.h"
-#include "IRtspHandler.h"
+#include "ITcpHandler.h"
 #include "IPycaiLogger.h"
 
-class CRtspHandler : public IRtspHandler
+class CRtspHandler : public ITcpHandler
 {
 public:
-    class CFactory : public IRtspHandler::IFactory
+    class CFactory : public ITcpHandler::IFactory
     {
     public:
         CFactory()
@@ -64,7 +65,24 @@ public:
         delete this;
     }
 
-    std::string Handle(const std::string& req) override
+    bool Handle(char* reqBuf, int& reqLen, char* respBuf, int& respLen) override
+    {
+	std::string req(reqBuf);
+	std::string resp = Handle(req);
+	if (resp.empty()) return false;
+
+	if (resp.size() >= respLen) {
+            PYCAI_ERROR("response to large");
+            return false;
+	}
+
+        respLen = resp.size();
+	memcpy(respBuf, resp.c_str(), resp.size());
+	return true;
+    }
+
+private:
+    std::string Handle(const std::string& req)
     {
         std::string reqType = GetRequestType(req);
         int seq = GetRequestSequence(req);
@@ -77,7 +95,6 @@ public:
         return "";
     }
 
-private:
     std::string GetRequestType(const std::string& req)
     {
         auto pos = req.find(" rtsp://");

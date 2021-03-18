@@ -21,6 +21,7 @@ int main()
     }
 
     PYCAI_INFO("ready to start rtsp server ...");
+    server->SetConfig("handler.class", "CRtspHandler");
     server->Listen("0.0.0.0", 8554);
     return 0;
 }

@@ -45,8 +45,9 @@ public:
         return "";
     }
 
-    bool SetConfig(const char*, const char*) override
+    bool SetConfig(const char* key, const char* value) override
     {
+	if (std::string(key) == "handler.class") { hdrClass_ = value; return true; }
         return false;
     }
 
@@ -121,6 +122,7 @@ private:
         tcpSession->SetConfig("local.port", (char*)(unsigned long)port);
         tcpSession->SetConfig("peer.ip", tempIp.c_str());
         tcpSession->SetConfig("peer.port", (char*)(unsigned long)tempPort);
+	tcpSession->SetConfig("handler.class", hdrClass_.c_str());
         if (!tcpSession->Run(tempSkt)) {
             PYCAI_ERROR("CTcpSession(%s:%d <--> %s:%d) run fail", ip, port, tempIp.c_str(), tempPort);
             tcpSession->Destroy();
@@ -130,6 +132,9 @@ private:
 
         PYCAI_INFO("CTcpSession(%s:%d <--> %s:%d) running ...", ip, port, tempIp.c_str(), tempPort);
     }
+
+private:
+    std::string hdrClass_;
 };
 
 void CTcpServerInit()

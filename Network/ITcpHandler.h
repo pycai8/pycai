@@ -1,9 +1,9 @@
-#ifndef PYCAI_IRTSPHANDLER_H_
-#define PYCAI_IRTSPHANDLER_H_
+#ifndef PYCAI_ITCPHANDLER_H_
+#define PYCAI_ITCPHANDLER_H_
 
 #include "Component.h"
 
-class IRtspHandler : public IUnknowObject
+class ITcpHandler : public IUnknowObject
 {
 public:
     class IFactory : public IUnknowFactory
@@ -12,7 +12,7 @@ public:
         virtual ~IFactory() {}
         static const char* StaticInterfaceId()
         {
-            return "IRtspHandler";
+            return "ITcpHandler";
         }
         const char* GetInterfaceId() const override
         {
@@ -20,8 +20,8 @@ public:
         }
     };
 
-    virtual ~IRtspHandler() {}
-    virtual std::string Handle(const std::string& req) = 0;
+    virtual ~ITcpHandler() {}
+    virtual bool Handle(char* reqBuf, int& reqLen, char* respBuf, int& respLen) = 0;
 };
 
 #endif
