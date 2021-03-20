@@ -1,0 +1,50 @@
+GET /live/playlist.m3u8 HTTP/1.1
+Referer: http://101.37.27.160/live/playlist.m3u8
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36 Edge/18.18362
+Accept: */*
+Accept-Language: en-GB,en;q=0.8,zh-Hans-CN;q=0.5,zh-Hans;q=0.3
+GetContentFeatures.DLNA.ORG: 1
+If-Modified-Since: Thu, 18 Mar 2021 13:52:53 GMT
+Accept-Encoding: gzip, deflate
+Host: 101.37.27.160
+Connection: Keep-Alive
+Cache-Control: no-cache
+
+HTTP/1.1 200 OK
+content-type: application/vnd.apple.mpegURL
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, PUT
+Content-Length: 193
+
+#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:14
+#EXT-X-MEDIA-SEQUENCE:103
+#EXTINF:10.007,
+playlist/103.ts
+#EXT-X-DISCONTINUITY
+#EXTINF:11.800,
+playlist/104.ts
+#EXTINF:12.000,
+playlist/105.ts
+GET /live/playlist/103.ts HTTP/1.1
+Referer: http://101.37.27.160/live/playlist.m3u8
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36 Edge/18.18362
+Accept: */*
+Accept-Language: en-GB,en;q=0.8,zh-Hans-CN;q=0.5,zh-Hans;q=0.3
+GetContentFeatures.DLNA.ORG: 1
+Range: bytes=0-
+Accept-Encoding: gzip, deflate
+Host: 101.37.27.160
+Connection: Keep-Alive
+Cache-Control: no-cache
+
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, PUT
+Content-Length: 390288
+
+G@.....
+...........^}.......................................................................................................................................................................GA.........................{.8..............................................................................................................................................................GA.8.P.`8.~......7..
+1...!.........	.....gM@..b..?.............x.......h.......e......e.@iJ...K.i...H.OX....u..&..../Bb2..{(.... q.Pm.^........:.~..`.....37~v..z@.
+..n.%0..jO.I@V...]]....DG...>6...EV....:|.:g.!..bs.5..xUa<p..>.3. V..L....RK.K....z........%.lC>.h/.>.>.*L..rL..ra)....../.*...v`t/.nx.H	},....@.r@..Y'g..C....79..F..v..E.8.....(..%r+....@..N..(..../.u..7D-l..g*.G.....g......	::#...FB#...5...S....._...B.K}I..L.......1....4h..i.e..n....D._0.?P..7.6\.o ..x..h..,Z..z4!i..%...<..B...B.R.(..d...N....Q.6.x.2.........8..X.............)K..E...b..%.LX.`...G....}1N..9G...jL..0...Tb.}g...}'T..1....}.Q.._..`x....."..v......p..O...K..'e.....x~.#.......&.+..>.L..w.YS....(.I....d]...
