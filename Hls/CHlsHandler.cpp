@@ -33,8 +33,9 @@ public:
     CHlsHandler() {}
     virtual ~CHlsHandler() {}
 
-    const char* GetConfig(const char*) const override
+    const char* GetConfig(const char* key) const override
     {
+        if (std::string(key) == "keep.alive") { return (keepAlive_ ? "true" : "false"); }
         return "";
     }
 
@@ -68,12 +69,19 @@ public:
     {
         std::string req(reqBuf, reqBuf + reqLen - 1);
         std::string reqType = GetRequestType(req);
+	keepAlive_ = GetKeepAlive(req);
         if (reqType == "m3u8") return HandleM3U8(respBuf, respLen);
         else if (reqType == "ts") return HandleTS(respBuf, respLen);
         else { PYCAI_ERROR("unknow request type[%s]", reqType.c_str()); return false; }
     }
 
 private:
+    bool GetKeepAlive(const std::string& req)
+    {
+        const char* tag= "Connection: Keep-Alive";
+        return (req.find(tag) != std::string::npos);	
+    }
+
     std::string GetRequestType(const std::string& req)
     {
         auto pos = req.find("\n");
@@ -154,6 +162,8 @@ private:
 
     int staSeq_ = 0;
     double duration_ = 9.5;
+
+    bool keepAlive_ = false;
 };
 
 void CHlsHandlerInit()

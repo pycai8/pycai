@@ -10,8 +10,8 @@ int main()
         return -1;
     }
     
-    loader->Load("../Network/libNetwork.so");
-    loader->Load("../Rtsp/libRtsp.so");
+    loader->Load("libNetwork.so");
+    loader->Load("libRtsp.so");
     loader->Destroy();
 
     ITcpServer* server = CreateComponentObject<ITcpServer>("CTcpServer");

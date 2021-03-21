@@ -125,7 +125,17 @@ private:
                 PYCAI_ERROR("send response fail.");
                 break;
             }
+
+	    if (std::string(hdr_->GetConfig("keep.alive")) == "false") {
+                PYCAI_INFO("not keep alive");
+		break;
+	    }
         }
+
+	if (skt_ >= 0) {
+            close(skt_);
+	    skt_ = -1;
+	}
     }
 
     bool ReadOneRequest(char* buf, int& len)

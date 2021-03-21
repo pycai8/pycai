@@ -10,8 +10,8 @@ int main()
         return -1;
     }
     
-    loader->Load("../Network/libNetwork.so");
-    loader->Load("../Hls/libHls.so");
+    loader->Load("libNetwork.so");
+    loader->Load("libHls.so");
     loader->Destroy();
 
     ITcpServer* server = CreateComponentObject<ITcpServer>("CTcpServer");
@@ -22,7 +22,7 @@ int main()
 
     PYCAI_INFO("ready to start hls server ...");
     server->SetConfig("handler.class", "CHlsHandler");
-    server->Listen("0.0.0.0", 8080);
+    server->Listen("0.0.0.0", 80);
     return 0;
 }
 
