@@ -62,6 +62,7 @@ public:
 
     void Destroy() override
     {
+	StopSessions();
         delete this;
     }
 
@@ -224,21 +225,20 @@ private:
         rtcpHelper->SetPeerPort(rtcpPeerPort_);
         rtcp_ = CreateComponentObject<IMediaSession>("CRtcpSession");
         rtcp_->Init(rtcpHelper);
-        
-	rtp_->Start("test.h264");
-        rtcp_->Start("test.h264");
     }
 
     void StartSessions()
     {
-        //rtp_->Start("test.h264");
-        //rtcp_->Start("test.h264");
+        if (rtp_) rtp_->Start("test.h264");
+        if (rtcp_) rtcp_->Start("test.h264");
     }
 
     void StopSessions()
     {
-        rtp_->Stop();
-        rtcp_->Stop();
+        if (rtp_) rtp_->Stop();
+        if (rtcp_) rtcp_->Stop();
+	rtp_ = 0;
+	rtcp_ = 0;
     }
 
     std::string localIp_;

@@ -1,6 +1,5 @@
 #!/bin/bash
 
-rm Bin -rf
 mkdir Bin
 cd Bin
 

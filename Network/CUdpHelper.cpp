@@ -51,6 +51,11 @@ public:
 
     void Destroy() override
     {
+	if (skt_ >= 0) {
+		close(skt_);
+		PYCAI_INFO("stop udp socket[%d]", skt_);
+		skt_ = -1;
+	}
         delete this;
     }
 
@@ -147,8 +152,7 @@ public:
         return (int)ret;
     }
 
-private:
-    bool Init()
+    bool Init() override
     {
         if (skt_ >= 0) return true;
 
@@ -181,6 +185,7 @@ private:
         return true;
     }
 
+private:
     std::string localIp_;
     std::string peerIp_;
     int localPort_ = 0;

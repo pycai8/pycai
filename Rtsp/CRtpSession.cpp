@@ -67,12 +67,17 @@ public:
 
     void Destroy() override
     {
+	if (udp_) {
+		udp_->Destroy();
+		udp_ = 0;
+	}
         delete this;
     }
 
     bool Init(IUdpHelper* value) override
     {
         udp_ = value;
+	udp_->Init();
         return true;
     }
 
@@ -96,6 +101,10 @@ public:
 
     bool Stop() override
     {
+	    if (run_ == false) {
+		    Destroy();
+		    return true;
+	    }
         run_ = false;
         return true;
     }
@@ -110,6 +119,7 @@ private:
         }
         CRtpSession* s = (CRtpSession*)arg;
         s->Loop();
+	s->Destroy();
         return 0;
     }
 

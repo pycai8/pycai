@@ -101,10 +101,10 @@ private:
                             + "#EXT-X-MEDIA-SEQUENCE:" + std::to_string(staSeq_) + "\r\n" // start sequence of the m3u8
                             + "#EXTINF:" + std::to_string(duration_) + ",\r\n" // duration of the start ts clip
                             + std::to_string(staSeq_ + 0) + "playlist.ts\r\n" // the start ts clip
-                            + "#EXT-X-DISCONTINUITY\r\n" // discontinuity exist
+                            //+ "#EXT-X-DISCONTINUITY\r\n" // discontinuity exist
                             + "#EXTINF:" + std::to_string(duration_) + ",\r\n" // duration of the start ts clip
                             + std::to_string(staSeq_ + 1) + "playlist.ts\r\n" // the start ts clip
-                            + "#EXT-X-DISCONTINUITY\r\n" // discontinuity exist
+                            //+ "#EXT-X-DISCONTINUITY\r\n" // discontinuity exist
                             + "#EXTINF:" + std::to_string(duration_) + ",\r\n" // duration of the start ts clip
                             + std::to_string(staSeq_ + 2) + "playlist.ts\r\n"; // the start ts clip
         std::string resp = std::string("HTTP/1.1 200 OKi\r\n")
@@ -160,11 +160,13 @@ private:
     int localPort_ = 0;
     int peerPort_ = 0;
 
-    int staSeq_ = 0;
+    static int staSeq_;
     double duration_ = 9.5;
 
     bool keepAlive_ = false;
 };
+
+int CHlsHandler::staSeq_ = 0;
 
 void CHlsHandlerInit()
 {

@@ -57,6 +57,10 @@ public:
 
     void Destroy() override
     {
+	if (hdr_) {
+		hdr_->Destroy();
+		hdr_ = 0;
+	}
         delete this;
     }
 
