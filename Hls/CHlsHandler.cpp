@@ -3,6 +3,7 @@
 
 #include "ITcpHandler.h"
 #include "IPycaiLogger.h"
+#include "ITsEncoder.h"
 
 class CHlsHandler : public ITcpHandler
 {
@@ -69,7 +70,7 @@ public:
     {
         std::string req(reqBuf, reqBuf + reqLen - 1);
         std::string reqType = GetRequestType(req);
-	keepAlive_ = GetKeepAlive(req);
+	    keepAlive_ = GetKeepAlive(req);
         if (reqType == "m3u8") return HandleM3U8(respBuf, respLen);
         else if (reqType == "ts") return HandleTS(respBuf, respLen);
         else { PYCAI_ERROR("unknow request type[%s]", reqType.c_str()); return false; }
@@ -95,6 +96,16 @@ private:
 
     bool HandleM3U8(char* buf, int& len)
     {
+        ITsEncoder* enc = CreateComponentObject<ITsEncoder>("CTsEncoder");
+        if (enc == 0) {
+            PYCAI_ERROR("can not create ts encoder");
+        } else {
+            if (!enc->H264ToTs("test.h264","playlist.ts")) {
+                PYCAI_ERROR("convert 264 to ts fail.");
+            }
+            enc->Destroy();
+        }
+
         std::string m3u8 = std::string("#EXTM3U\r\n") // must start with this
                             + "#EXT-X-VERSION:3\r\n" // use version 3
                             + "#EXT-X-TARGETDURATION:10\r\n" // max duration of ts is 5s
@@ -137,19 +148,19 @@ private:
         err = errno;
         if (ret <= 0) {
             PYCAI_ERROR("read file[playlist.ts] fail[%s]", strerror(err));
-	    fclose(fp);
+	        fclose(fp);
             return false;
         }
 
-	if (ret + 1 >= len) {
-		PYCAI_ERROR("buf size is too small");
-		fclose(fp);
-		return false;
-	}
+    	if (ret + 1 >= len) {
+		    PYCAI_ERROR("buf size is too small");
+		    fclose(fp);
+		    return false;
+	    }
 
         buf[ret] = '\r';
-	buf[ret + 1] = '\n';
-	len = ret + 2;
+	    buf[ret + 1] = '\n';
+	    len = ret + 2;
         fclose(fp);
         return true;
     }
