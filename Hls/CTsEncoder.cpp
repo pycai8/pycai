@@ -5,67 +5,7 @@
 #include "ITsEncoder.h"
 #include "IPycaiLogger.h"
 
-class TsHeader {
-public:
-    /* byte 0 */
-    uint32_t sync_byte:8;
-    /* byte 1 ~ 2 */
-    uint32_t transport_error_indicator:1;
-    uint32_t payload_unit_start_indicator:1;
-    uint32_t transport_priority:1;
-    uint32_t pid:13;
-    /* byte 3 */
-    uint32_t transport_scrambling_control:2;
-    uint32_t adaptation_field_control:2;
-    uint32_t continuity_count:4;
-   
-private:
-    void Init()
-    {
-        // fixed 0x47
-        sync_byte = 0x47;
-        // 0: not bit error; 1: has bit error;
-        transport_error_indicator = 0;
-        // 0: no adjust byte; 1: has one adjust byte;
-        payload_unit_start_indicator = 0;
-        // 0: normal priority; 1: high priority;
-        transport_priority = 0;
-        // type of ts package
-        pid = 0;
-        // 0: no scrambling; other: has scrambling;
-        transport_scrambling_control = 0;
-        // 0b01: payload only; 0b10: adaptation only; 0b11: adaptation and payload
-        adaptation_field_control = 1;
-        // count, like 0,1,...,15,0,1,...15,0... for ts packages.
-        continuity_count = 0;
-    }
-
-public:
-    TsHeader(const std::string& type)
-    {
-        Init();
-        if (type == "pat") {
-            payload_unit_start_indicator = 1;
-            transport_priority = 1;
-        } else if (type == "pmt") {
-            payload_unit_start_indicator = 1;
-            transport_priority = 1;
-            pid = 0x81;
-        }
-    }
-
-    TsHeader(const std::string& type, bool padding, int cc)
-    {
-        Init();
-        if (type == "pes") {
-            pid = 0x810;
-            adaptation_field_control = (padding ? 3 : 1);
-            continuity_count = cc;
-        }
-    }
-};
-
-static uint32_t crc32table[256] = {
+static const uint32_t crc32table[256] = {
     0x00000000, 0xB71DC104, 0x6E3B8209, 0xD926430D, 0xDC760413, 0x6B6BC517,
     0xB24D861A, 0x0550471E, 0xB8ED0826, 0x0FF0C922, 0xD6D68A2F, 0x61CB4B2B,
     0x649B0C35, 0xD386CD31, 0x0AA08E3C, 0xBDBD4F38, 0x70DB114C, 0xC7C6D048,
@@ -119,214 +59,6 @@ uint32_t CalcCrc(uint8_t* buffer, uint32_t size)
     }
     return crc ;
 }
-
-class PatInfo {
-public:
-    /* byte 0 */
-    uint32_t table_id:8; 
-    /* byte 1 ~ 2 */
-    uint32_t section_syntax_indicator:1; 
-    uint32_t zero:1; 
-    uint32_t reserved1:2; 
-    uint32_t section_length:12;
-    /* byte 3 ~ 4 */
-    uint32_t transport_stream_id:16;
-    /* byte 5 */
-    uint32_t reserved2:2;
-    uint32_t version_number:5;
-    uint32_t current_next_indicator:1;
-    /* byte 6 */
-    uint32_t section_number:8; 
-    /* byte 7 */
-    uint32_t last_section_number:8;
-    /* byte 8 ~ 9 */
-    uint32_t program_number:16;
-    /* byte 10 ~ 11 */
-    uint32_t reserved3:3;
-    uint32_t program_map_pid:13;
-    /* byte 12 ~ 15 */
-    uint32_t crc32;
-
-    PatInfo()
-    {
-        // fixed 0
-        table_id = 0;
-        // fixed 1
-        section_syntax_indicator = 1;
-        // fixed 0
-        zero = 0;
-        // fixed 0b11
-        reserved1 = 3;
-        // fixed 13, the usefull bytes count after this
-        section_length = 13;
-        // fixed 1
-        transport_stream_id = 1;
-        // fixed 0b11
-        reserved2 = 3;
-        // let 0
-        version_number = 0;
-        // let 1, this usefull
-        current_next_indicator = 1;
-        // let 0
-        section_number = 0;
-        // let 0
-        last_section_number = 0;
-        // let 1
-        program_number = 1;
-        // fixed 0b111
-        reserved3 = 7;
-        // let 0x81
-        program_map_pid = 0x81;
-        // calc crc
-        crc32 = CalcCrc((uint8_t*)this, sizeof(*this) - 4);
-    }
-};
-
-class PmtInfo {
-public:
-    uint32_t table_id:8;
-
-    uint32_t section_syntax_indicator:1;
-    uint32_t zero:1;  
-    uint32_t reserved1:2; 
-    uint32_t section_length:12;  
-
-    uint32_t program_number:16;  
-    
-    uint32_t reserved2:2; 
-    uint32_t version_number:5; 
-    unsigned current_next_indicator:1;  
-    
-    uint32_t section_number:8;  
-    
-    uint32_t last_section_number:8; 
-    
-    uint32_t reserved3:3;  
-    uint32_t pcr_pid:13;  
-    
-    uint32_t reserved4:4;  
-    uint32_t program_info_length:12; 
-    
-    uint32_t stream_type:8;
-
-    uint32_t reserved5:3;
-    uint32_t elementary_pid:13;
-
-    uint32_t reserved6:4;
-    uint32_t es_info_length:12;
-
-    uint32_t crc32:32;   
-
-    PmtInfo()
-    {
-        // fixed 2
-        table_id = 2;
-        // fixed 1
-        section_syntax_indicator = 1;
-        // fixed 0
-        zero = 0;
-        // fixed 0b11
-        reserved1 = 3;
-        // fixed 18, the count of the after usefull bytes.
-        section_length = 18;
-        // fixed 1 which is the same with pat
-        program_number = 1;
-        // fixed 0b11
-        reserved2 = 3;
-        // fixed 0
-        version_number = 0;
-        // 1 usefull pmt
-        current_next_indicator = 1;
-        // fixed 0
-        section_number = 0;
-        // fixed 0
-        last_section_number = 0;
-        // fixed 0b111
-        reserved3 = 7;
-        // the pid of ts package that containing pcr
-        pcr_pid = 0x810;
-        // fixed 0b1111
-        reserved4 = 15;
-        // fixed 0, no other info
-        program_info_length = 0;
-        // 0x1b for h264
-        stream_type = 0x1b;
-        // fixe 0b111
-        reserved5 = 7;
-        // let pid of h264 es to be 0x810
-        elementary_pid = 0x810;
-        // fixed 0b1111
-        reserved6 = 15;
-        // no es info
-        es_info_length = 0;
-        crc32 = CalcCrc((uint8_t*)this, sizeof(this) - 4); 
-    }
-};
-
-class PesHeader {
-public:
-    uint32_t package_start_code_prefix:24;
-
-    uint32_t stream_id:8;
-    
-    uint32_t pes_package_length:16;
-
-    uint32_t bit_1_0:2;
-    uint32_t pes_scrambling_control:2;
-    uint32_t pes_priority:1;
-    uint32_t data_alignment_indicator:1;
-    uint32_t copyright:1;
-    uint32_t original_or_copy:1;
-
-    uint32_t pts_flag:1;
-    uint32_t dts_flag:1;
-    uint32_t escr_flag:1;
-    uint32_t es_rate_flag:1;
-    uint32_t dsm_trick_mode_flag:1;
-    uint32_t additional_copy_info_flag:1;
-    uint32_t pes_crc_flag:1;
-    uint32_t pes_extension_flag:1;
-
-    uint32_t pes_header_data_length:8;
-
-    uint32_t pts_start_code:4;
-    uint32_t pts_32_30:3;
-    uint32_t pts_marker1:1;
-    uint32_t pts_29_15:15;
-    uint32_t pts_marker2:1;
-    uint32_t pts_14_0:15;
-    uint32_t pts_marker3:1;
-
-    PesHeader(uint64_t timestamp)
-    {
-        // fixed 0x000001
-        package_start_code_prefix = 0x1;
-        stream_id = 0xe0; // h264 video
-        pes_package_length = 0; // auto calc
-        bit_1_0 = 2; // 0b10
-        pes_scrambling_control = 0; // no encryption
-        pes_priority = 0; // normal priority
-        data_alignment_indicator = 0;
-        copyright = 0;
-        original_or_copy = 0;
-        pts_flag = 1;
-        dts_flag = 0;
-        escr_flag = 0;
-        es_rate_flag = 0;
-        dsm_trick_mode_flag = 0;
-        additional_copy_info_flag = 0;
-        pes_crc_flag = 0;
-        pes_extension_flag = 0;
-        pes_header_data_length = 5; // 5 bytes for pts
-        pts_start_code = 2; // 0b0010
-        pts_32_30 = (timestamp >> 30) & 0x3; // 0x3 = 0b111
-        pts_marker1 = 1;
-        pts_29_15 = (timestamp >> 15) & 0x7fff; //0b 111 1111 1111 1111
-        pts_marker2 = 1;
-        pts_14_0 = timestamp & 0x7fff;
-        pts_marker3 = 1;
-    }
-};
 
 class CTsEncoder : public ITsEncoder
 {
@@ -397,10 +129,10 @@ public:
             PYCAI_ERROR("write pmt fail");
         }
         while (true) {
-            char buf[900 * 1024] = { 0 };
-            char* inBuf = buf + sizeof(PesHeader);
-            int inLen = sizeof(buf) - sizeof(PesHeader);
-            char* outBuf = 0;
+            uint8_t buf[900 * 1024] = { 0 };
+            uint8_t* inBuf = buf + 188;
+            int inLen = sizeof(buf) - 188;
+            uint8_t* outBuf = 0;
             int outLen = 0;
             if (!ReadOneFrame(fpSrc, inBuf, inLen, &outBuf, &outLen)) {
                 PYCAI_ERROR("read one frame fail.");
@@ -409,9 +141,10 @@ public:
             uint8_t naluHeader = outBuf[0];
             uint8_t naluType = naluHeader & 0x1f;
             if (naluType != 7 && naluType != 8) { // not sps and not pps
-                timestamp_ += 90000 / 25; // 90000 clock rate, 25 frame rate.
+                timestamp_ += 90000 / 25; // 90000 clock rate, 25 frame rate
+                pcr_ += 27000000ull / 25; // 27m clock rate, 25 frame rate
             }
-            if (!WriteOneFrame(fpDest, outBuf, outLen)) {
+            if (!WriteOneFrame(fpDest, outBuf, outLen, naluType)) {
                 PYCAI_ERROR("write one frame fail");
                 break;
             }
@@ -426,39 +159,79 @@ public:
 
     bool WritePat(FILE* fp)
     {
-        TsHeader hdr("pat");
-        if (!WriteBuf(fp, (char*)&hdr, sizeof(hdr))) return false;
+        uint8_t buf[188] = { 0 };
+        memset(buf, 0xFF, 188);
 
-        uint8_t adjustByte = 0;
-        if (!WriteBuf(fp, (char*)&adjustByte, 1)) return false;
+        // ts header
+        buf[0] = 0x47;
+        buf[1] = 0b01100000;
+        buf[2] = 0x0;
+        buf[3] = 0b00010000;
 
-        PatInfo info;
-        if (!WriteBuf(fp, (char*)&info, sizeof(info))) return false;
+        // pat info
+        buf[4] = 0x0;
+        buf[5] = 0x0;
+        buf[6] = 0b10110000;
+        buf[7] = 0x0D;
+        buf[8] = 0x00;
+        buf[9] = 0x01;
+        buf[10] = 0b11000001;
+        buf[11] = 0x00;
+        buf[12] = 0x00;
+        buf[13] = 0x00;
+        buf[14] = 0x01;
+        buf[15] = 0b11100000;
+        buf[16] = 0x81;
+        uint32_t crc = CalcCrc(buf + 5, 12);
+        buf[20] = (crc >> 24) & 0xFF;
+        buf[19] = (crc >> 16) & 0xFF;
+        buf[18] = (crc >> 8) & 0xFF;
+        buf[17] = crc & 0xFF;
 
-        uint8_t padding[188] = { 0xff };
-        if (!WriteBuf(fp, (char*)padding, 188 - sizeof(hdr) - 1 - sizeof(info))) return false;
-
-        return true;
+        return WriteBuf(fp, buf, 188);
     }
 
     bool WritePmt(FILE* fp)
     {
-        TsHeader hdr("pmt");
-        if (!WriteBuf(fp, (char*)&hdr, sizeof(hdr))) return false;
+        uint8_t buf[188] = { 0 };
+        memset(buf, 0xFF, 188);
 
-        uint8_t adjustByte = 0;
-        if (!WriteBuf(fp, (char*)&adjustByte, 1)) return false;
+        // ts header
+        buf[0] = 0x47;
+        buf[1] = 0b01100000;
+        buf[2] = 0x81;
+        buf[3] = 0b00010000;
 
-        PmtInfo info;
-        if (!WriteBuf(fp, (char*)&info, sizeof(info))) return false;
+        // pmt info
+        buf[4] = 0;
+        buf[5] = 2;
+        buf[6] = 0b10110000;
+        buf[7] = 0x12;
+        buf[8] = 0x00;
+        buf[9] = 0x01;
+        buf[10] = 0b11000001;
+        buf[11] = 0x00;
+        buf[12] = 0x00;
+        buf[13] = 0b11101000;
+        buf[14] = 0x10;
+        buf[15] = 0b11110000;
+        buf[16] = 0x00;
+        buf[17] = 0x1b; // stream_type h264 0x1b
+        buf[18] = 0b11101000;
+        buf[19] = 0x10;
+        buf[20] = 0b11110000;
+        buf[21] = 0x00;
+        uint32_t crc = CalcCrc(buf + 5, 17);
+        buf[25] = (crc >> 24) & 0xFF;
+        buf[24] = (crc >> 16) & 0xFF;
+        buf[23] = (crc >> 8) & 0xFF;
+        buf[22] = crc & 0xFF;
 
-        uint8_t padding[188] = { 0xff };
-        if (!WriteBuf(fp, (char*)padding, 188 - sizeof(hdr) - 1 - sizeof(info))) return false;
+        return WriteBuf(fp, buf, 188);
 
-        return true;
     }
 
-    bool ReadOneFrame(FILE* fp, char* inBuf, int inLen, char** outBuf, int* outLen)
+    bool ReadOneFrame(FILE* fp, uint8_t* inBuf, int inLen, uint8_t** outBuf, int* outLen)
     {
         size_t sz = fread(inBuf, 1, inLen, fp);
         int err = errno;
@@ -491,37 +264,109 @@ public:
         return true;
     }
 
-    bool WriteOneFrame(FILE* fp, char* buf, int len)
+    bool WriteOneFrame(FILE* fp, uint8_t* buf, int len, uint8_t naluType)
     {
-        char* pesBuf = buf - sizeof(PesHeader);
-        int pesLen = len + sizeof(PesHeader);
-        PesHeader pesHdr(timestamp_);
-        memcpy(pesBuf, &pesHdr, sizeof(pesHdr));
+        // 0x 00 00 01
+        buf = buf - 3;
+        len = len + 3;
 
-        int pesClipCount = pesLen / 184;
-        if (pesLen % 184 != 0) pesClipCount++;
-        int cc = 0;
-        for (int i = 0; i < pesClipCount; ++i) {
-            bool padding = (pesLen % 184 != 0 && i == pesClipCount - 1);
-            TsHeader hdr("pes", padding, cc);
-            cc = (cc + 1) % 16;
-            if (!WriteBuf(fp, (char*)&hdr, sizeof(hdr))) return false;
-
-            if (padding) {
-                uint8_t tmpBuf[188] = { 0xff };
-                int tmpLen = 188 - sizeof(TsHeader) - pesLen % 184;
-                if (!WriteBuf(fp, (char*)tmpBuf, tmpLen)) return false;
+        // pes header
+        int pesHdrLen = 14;
+        buf = buf - pesHdrLen;
+        len = len + pesHdrLen;
+        buf[0] = 0x00; // 0x 00 00 01
+        buf[1] = 0x00;
+        buf[2] = 0x01;
+        buf[3] = 0xE0; // stream id
+        buf[4] = 0x00; // pes pkg length
+        buf[5] = 0x00;
+        buf[6] = 0b10000000; // 10 scrambling priority alignment copyright
+        buf[7] = 0b10000000; // 8 flags, pts on, other off.
+        buf[8] = 0x5; // 5B for pts
+        buf[9] =  0b00100001 | ((timestamp_ >> 29) & 0b00001110); // pts 3b
+        buf[10] = ((timestamp_ >> 22) & 0xFF); // pts 8b
+        buf[11] = 0b00000001 | ((timestamp_ >> 14) & 0b11111110); // pts 7b
+        buf[12] = ((timestamp_ >> 7) & 0xFF); // pts 8b
+        buf[13] = 0b00000001 | ((timestamp_ <<  1) & 0b11111110); // pts 7b
+        
+        // flags
+        bool hasPcr = (naluType == 1 || naluType == 5); // I P B has
+        int useLen = (hasPcr ? len + 8 : len);
+        int rmdLen = useLen % 184;
+        int clipCount = useLen / 184;
+        if (rmdLen != 0) clipCount++;
+        for (int i = 0; i < clipCount; i++) {
+            // prepare
+            uint8_t data[188];
+            memset(data, 0xFF, 188);
+            int AFLen = 0;
+            uint8_t* pesClipBuf = 0;
+            int pesClipLen = 0;
+            if (!hasPcr) {
+                pesClipBuf = buf + i * 184;
+                if (rmdLen != 0 && i == clipCount - 1) {
+                    AFLen = 184 - rmdLen;
+                    pesClipLen = rmdLen;
+                } else {
+                    AFLen = 0;
+                    pesClipLen = 184;
+                }
+            } else {
+                if (clipCount == 1) {
+                    AFLen = 184 - len;
+                    pesClipBuf = buf;
+                    pesClipLen = len;
+                } else {
+                    if (i == 0) {
+                        AFLen = 8;
+                        pesClipBuf = buf;
+                        pesClipLen = 176;
+                    } else if (i == clipCount - 1) {
+                        AFLen = (rmdLen != 0 ? 184 - rmdLen : 0);
+                        pesClipLen = (rmdLen != 0 ? rmdLen : 184);
+                        pesClipBuf = buf + len - pesClipLen;
+                    } else {
+                        AFLen = 0;
+                        pesClipLen = 184;
+                        pesClipBuf = buf + 176 + (i - 1) * 184;
+                    }
+                }
             }
 
-            char* pesClipBuf = pesBuf + i * 184;
-            int pesClipLen = (padding ? pesLen % 184 : 184);
-            if (!WriteBuf(fp, pesClipBuf, pesClipLen)) return false;
+            // ts header
+            data[0] = 0x47;
+            data[1] = (i == 0 ? 0b01001000 : 0b00001000);
+            data[2] = 0x10;
+            data[3] = ((AFLen > 0 ? 0b00110000 : 0b00010000) | (cc_ & 0x0F));
+            cc_ = (cc_ + 1) % 16;
+
+            // AF
+            if (AFLen > 0) {
+                data[4] = AFLen - 1;
+                data[5] = 0x00;
+                if (hasPcr && i == 0) {
+                    data[5] = 0b00010000;
+                    uint64_t base = pcr_ / 300;
+                    uint64_t ext = pcr_ % 300;
+                    data[6] = ((base >> 25) & 0xFF);
+                    data[7] = ((base >> 17) & 0xFF);
+                    data[8] = ((base >>  9) & 0xFF);
+                    data[9] = ((base >>  1) & 0xFF);
+                    data[10] = 0b01111110 | ((base << 7) & 0b10000000) | ((ext >> 8) & 0x1);
+                    data[11] = ext & 0xFF;
+                }
+            }
+
+            // pes
+            memcpy(data + 4 + AFLen, pesClipBuf, pesClipLen);
+
+            if (!WriteBuf(fp, data, 188)) return false;
         }
 
         return true;
     }
 
-    bool WriteBuf(FILE* fp, char* buf, int len)
+    bool WriteBuf(FILE* fp, uint8_t* buf, int len)
     {
         auto ret = fwrite(buf, 1, len, fp);
         int err = errno;
@@ -533,6 +378,8 @@ public:
 
 private:
     uint64_t timestamp_ = 0;
+    uint64_t pcr_ = 0;
+    int cc_ = 0;
 };
 
 void CTsEncoderInit()

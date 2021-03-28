@@ -117,7 +117,7 @@ private:
                 hdr_->SetConfig("local.port", (char*)(unsigned long)localPort_);
                 hdr_->SetConfig("peer.port", (char*)(unsigned long)peerPort_);
             }
-            char respBuf[900 * 1024] = { 0 };
+            char respBuf[2 * 1024 * 1024] = { 0 };
             int respLen = sizeof(respBuf);
             ret = hdr_->Handle(reqBuf, reqLen, respBuf, respLen);
             if (!ret) {
