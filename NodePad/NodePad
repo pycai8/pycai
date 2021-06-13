@@ -1,0 +1,62 @@
+<NotepadPlus>
+    <Project name="pycai">
+        <Folder name="Bin">
+            <File name="E:\pycai\Bin\libComponent.so" />
+            <File name="E:\pycai\Bin\libHls.so" />
+            <File name="E:\pycai\Bin\libNetwork.so" />
+            <File name="E:\pycai\Bin\libRtsp.so" />
+            <File name="E:\pycai\Bin\playlist.ts" />
+            <File name="E:\pycai\Bin\test.h264" />
+            <File name="E:\pycai\Bin\test_hls" />
+            <File name="E:\pycai\Bin\test_rtsp" />
+        </Folder>
+        <Folder name="Component">
+            <File name="E:\pycai\Component\Build.sh" />
+            <File name="E:\pycai\Component\Component.cpp" />
+            <File name="E:\pycai\Component\Component.h" />
+            <File name="E:\pycai\Component\CPycaiLogger.cpp" />
+            <File name="E:\pycai\Component\CSoLoader.cpp" />
+            <File name="E:\pycai\Component\ILibLoader.h" />
+            <File name="E:\pycai\Component\IPycaiLogger.h" />
+            <File name="E:\pycai\Component\SoMain.cpp" />
+        </Folder>
+        <Folder name="Hls">
+            <File name="E:\pycai\Hls\Build.sh" />
+            <File name="E:\pycai\Hls\CHlsHandler.cpp" />
+            <File name="E:\pycai\Hls\CTsEncoder.cpp" />
+            <File name="E:\pycai\Hls\hls.txt" />
+            <File name="E:\pycai\Hls\ITsEncoder.h" />
+            <File name="E:\pycai\Hls\SoMain.cpp" />
+        </Folder>
+        <Folder name="Network">
+            <File name="E:\pycai\Network\Build.sh" />
+            <File name="E:\pycai\Network\CTcpServer.cpp" />
+            <File name="E:\pycai\Network\CTcpSession.cpp" />
+            <File name="E:\pycai\Network\CUdpHelper.cpp" />
+            <File name="E:\pycai\Network\ITcpHandler.h" />
+            <File name="E:\pycai\Network\ITcpServer.h" />
+            <File name="E:\pycai\Network\ITcpSession.h" />
+            <File name="E:\pycai\Network\IUdpHelper.h" />
+            <File name="E:\pycai\Network\SoMain.cpp" />
+        </Folder>
+        <Folder name="Rtsp">
+            <File name="E:\pycai\Rtsp\Build.sh" />
+            <File name="E:\pycai\Rtsp\CRtcpSession.cpp" />
+            <File name="E:\pycai\Rtsp\CRtpSession.cpp" />
+            <File name="E:\pycai\Rtsp\CRtspHandler.cpp" />
+            <File name="E:\pycai\Rtsp\IMediaSession.h" />
+            <File name="E:\pycai\Rtsp\rtsp.txt" />
+            <File name="E:\pycai\Rtsp\SoMain.cpp" />
+        </Folder>
+        <Folder name="Test">
+            <File name="E:\pycai\Test\Build.sh" />
+            <File name="E:\pycai\Test\playlist.ts" />
+            <File name="E:\pycai\Test\test.h264" />
+            <File name="E:\pycai\Test\TestHls.cpp" />
+            <File name="E:\pycai\Test\TestRtsp.cpp" />
+        </Folder>
+        <File name="E:\pycai\Build.sh" />
+        <File name="E:\pycai\LICENSE" />
+        <File name="E:\pycai\README.md" />
+    </Project>
+</NotepadPlus>

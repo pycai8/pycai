@@ -79,8 +79,8 @@ public:
 private:
     bool GetKeepAlive(const std::string& req)
     {
-        const char* tag= "Connection: Keep-Alive";
-        return (req.find(tag) != std::string::npos);	
+        const char* tag= "Connection: close";
+        return (req.find(tag) == std::string::npos);	
     }
 
     std::string GetRequestType(const std::string& req)
