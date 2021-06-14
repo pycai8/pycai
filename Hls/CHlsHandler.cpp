@@ -99,12 +99,14 @@ private:
         ITsEncoder* enc = CreateComponentObject<ITsEncoder>("CTsEncoder");
         if (enc == 0) {
             PYCAI_ERROR("can not create ts encoder");
-        } else {
-            if (!enc->H264ToTs("test.h264","playlist.ts")) {
+        } else if (m_len <= 0) {
+            m_len = sizeof(m_buf);
+            if (!enc->H264ToTs("test.h264",m_buf, m_len)) {
                 PYCAI_ERROR("convert 264 to ts fail.");
             }
             enc->Destroy();
         }
+        
 
         std::string m3u8 = std::string("#EXTM3U\r\n") // must start with this
                             + "#EXT-X-VERSION:3\r\n" // use version 3
@@ -137,31 +139,15 @@ private:
 
     bool HandleTS(char* buf, int& len)
     {
-        FILE* fp = fopen("playlist.ts", "r");
-        int err = errno;
-        if (fp == 0) {
-            PYCAI_ERROR("open file[playlist.ts] fail[%s]", strerror(err));
+        if (len < m_len + 2)
+        {
+            PYCAI_ERROR("input buf len is too small");
             return false;
         }
-
-        int ret = fread(buf, 1, len, fp);
-        err = errno;
-        if (ret <= 0) {
-            PYCAI_ERROR("read file[playlist.ts] fail[%s]", strerror(err));
-	        fclose(fp);
-            return false;
-        }
-
-    	if (ret + 1 >= len) {
-		    PYCAI_ERROR("buf size is too small");
-		    fclose(fp);
-		    return false;
-	    }
-
-        buf[ret] = '\r';
-	    buf[ret + 1] = '\n';
-	    len = ret + 2;
-        fclose(fp);
+        memcpy(buf, m_buf, m_len);
+        buf[m_len] = '\r';
+        buf[m_len+1] = '\n';
+        len = m_len + 2;
         return true;
     }
 
@@ -175,6 +161,9 @@ private:
     double duration_ = 9.5;
 
     bool keepAlive_ = false;
+    
+    char m_buf[2 * 1024 * 1024] = { 0 };
+    int m_len = 0;
 };
 
 int CHlsHandler::staSeq_ = 0;

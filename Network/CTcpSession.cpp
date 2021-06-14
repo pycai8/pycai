@@ -51,16 +51,16 @@ public:
         if (std::string(key) == "local.port") { localPort_ = (int)(unsigned long)value; return true; }
         if (std::string(key) == "peer.ip") { peerIp_ = value; return true; }
         if (std::string(key) == "peer.port") { peerPort_ = (int)(unsigned long)value; return true; }
-	if (std::string(key) == "handler.class") { hdrClass_ = value; return true; }
+        if (std::string(key) == "handler.class") { hdrClass_ = value; return true; }
         return false;
     }
 
     void Destroy() override
     {
-	if (hdr_) {
-		hdr_->Destroy();
-		hdr_ = 0;
-	}
+        if (hdr_) {
+            hdr_->Destroy();
+            hdr_ = 0;
+        }
         delete this;
     }
 
@@ -130,16 +130,16 @@ private:
                 break;
             }
 
-	    if (std::string(hdr_->GetConfig("keep.alive")) == "false") {
+            if (std::string(hdr_->GetConfig("keep.alive")) == "false") {
                 PYCAI_INFO("not keep alive");
-		break;
-	    }
+                break;
+            }
         }
 
-	if (skt_ >= 0) {
+        if (skt_ >= 0) {
             close(skt_);
-	    skt_ = -1;
-	}
+            skt_ = -1;
+        }
     }
 
     bool ReadOneRequest(char* buf, int& len)

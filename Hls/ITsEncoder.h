@@ -21,7 +21,7 @@ public:
     };
 
     virtual ~ITsEncoder() {}
-    virtual bool H264ToTs(const char* h264File, const char* tsFile) = 0;
+    virtual bool H264ToTs(const char* h264File, char* data, int& len) = 0;
 };
 
 #endif

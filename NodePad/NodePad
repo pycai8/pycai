@@ -1,15 +1,5 @@
 <NotepadPlus>
     <Project name="pycai">
-        <Folder name="Bin">
-            <File name="E:\pycai\Bin\libComponent.so" />
-            <File name="E:\pycai\Bin\libHls.so" />
-            <File name="E:\pycai\Bin\libNetwork.so" />
-            <File name="E:\pycai\Bin\libRtsp.so" />
-            <File name="E:\pycai\Bin\playlist.ts" />
-            <File name="E:\pycai\Bin\test.h264" />
-            <File name="E:\pycai\Bin\test_hls" />
-            <File name="E:\pycai\Bin\test_rtsp" />
-        </Folder>
         <Folder name="Component">
             <File name="E:\pycai\Component\Build.sh" />
             <File name="E:\pycai\Component\Component.cpp" />
@@ -50,7 +40,6 @@
         </Folder>
         <Folder name="Test">
             <File name="E:\pycai\Test\Build.sh" />
-            <File name="E:\pycai\Test\playlist.ts" />
             <File name="E:\pycai\Test\test.h264" />
             <File name="E:\pycai\Test\TestHls.cpp" />
             <File name="E:\pycai\Test\TestRtsp.cpp" />

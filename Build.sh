@@ -4,7 +4,6 @@ mkdir Bin
 cd Bin
 
 cp ../Test/test.h264 . -rf
-cp ../Test/playlist.ts . -rf
 
 cd ../Component
 sh Build.sh

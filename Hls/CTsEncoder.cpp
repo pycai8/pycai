@@ -104,8 +104,13 @@ public:
         delete this;
     }
 
-    bool H264ToTs(const char* h264File, const char* tsFile) override
+    bool H264ToTs(const char* h264File, char* data, int& len) override
     {
+        if (data == 0 || len <= 0) {
+            PYCAI_ERROR("input data or len is invalidate");
+            return false;
+        }
+        
         FILE* fpSrc = fopen(h264File, "r");
         int err = errno;
         if (fpSrc == 0) {
@@ -113,19 +118,13 @@ public:
             return false;
         }
 
-        FILE* fpDest = fopen(tsFile, "w+");
-        err = errno;
-        if (fpDest == 0) {
-            PYCAI_ERROR("open ts file fail[%s]", strerror(err));
-            fclose(fpSrc);
-            fpSrc = 0;
-            return false;
-        }
-
-        if (!WritePat(fpDest)) {
+        m_data = (uint8_t*)data;
+        m_inLen = len;
+        m_outLen = 0;
+        if (!WritePat()) {
             PYCAI_ERROR("write pat fail.");
         }
-        if (!WritePmt(fpDest)) {
+        if (!WritePmt()) {
             PYCAI_ERROR("write pmt fail");
         }
         while (true) {
@@ -144,7 +143,7 @@ public:
                 timestamp_ += 90000 / 25; // 90000 clock rate, 25 frame rate
                 pcr_ += 27000000ull / 25; // 27m clock rate, 25 frame rate
             }
-            if (!WriteOneFrame(fpDest, outBuf, outLen, naluType)) {
+            if (!WriteOneFrame(outBuf, outLen, naluType)) {
                 PYCAI_ERROR("write one frame fail");
                 break;
             }
@@ -152,12 +151,11 @@ public:
 
         fclose(fpSrc);
         fpSrc = 0;
-        fclose(fpDest);
-        fpDest = 0;
+        len = m_outLen;
         return true;
     }
 
-    bool WritePat(FILE* fp)
+    bool WritePat()
     {
         uint8_t buf[188] = { 0 };
         memset(buf, 0xFF, 188);
@@ -188,10 +186,10 @@ public:
         buf[18] = (crc >> 8) & 0xFF;
         buf[17] = crc & 0xFF;
 
-        return WriteBuf(fp, buf, 188);
+        return WriteBuf(buf, 188);
     }
 
-    bool WritePmt(FILE* fp)
+    bool WritePmt()
     {
         uint8_t buf[188] = { 0 };
         memset(buf, 0xFF, 188);
@@ -227,7 +225,7 @@ public:
         buf[23] = (crc >> 8) & 0xFF;
         buf[22] = crc & 0xFF;
 
-        return WriteBuf(fp, buf, 188);
+        return WriteBuf(buf, 188);
 
     }
 
@@ -264,7 +262,7 @@ public:
         return true;
     }
 
-    bool WriteOneFrame(FILE* fp, uint8_t* buf, int len, uint8_t naluType)
+    bool WriteOneFrame(uint8_t* buf, int len, uint8_t naluType)
     {
         // 0x 00 00 01
         buf = buf - 3;
@@ -360,26 +358,33 @@ public:
             // pes
             memcpy(data + 4 + AFLen, pesClipBuf, pesClipLen);
 
-            if (!WriteBuf(fp, data, 188)) return false;
+            if (!WriteBuf(data, 188)) return false;
         }
 
         return true;
     }
 
-    bool WriteBuf(FILE* fp, uint8_t* buf, int len)
+    bool WriteBuf(uint8_t* buf, int len)
     {
-        auto ret = fwrite(buf, 1, len, fp);
-        int err = errno;
-        if (ret <= 0) {
-            PYCAI_ERROR("write fail, ret[%d], msg[%s]", (int)ret, strerror(err));
+        if (m_outLen + len > m_inLen)
+        {
+            PYCAI_ERROR("stream buffer is too small");
+            return false;
         }
-        return ret > 0;
+        
+        memcpy(m_data+m_outLen, buf, len);
+        m_outLen += len;
+        return true;
     } 
 
 private:
     uint64_t timestamp_ = 0;
     uint64_t pcr_ = 0;
     int cc_ = 0;
+    
+    uint8_t* m_data = 0;
+    int m_inLen = 0;
+    int m_outLen = 0;
 };
 
 void CTsEncoderInit()
