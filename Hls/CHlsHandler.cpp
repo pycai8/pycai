@@ -96,18 +96,6 @@ private:
 
     bool HandleM3U8(char* buf, int& len)
     {
-        ITsEncoder* enc = CreateComponentObject<ITsEncoder>("CTsEncoder");
-        if (enc == 0) {
-            PYCAI_ERROR("can not create ts encoder");
-        } else if (m_len <= 0) {
-            m_len = sizeof(m_buf);
-            if (!enc->H264ToTs("test.h264",m_buf, m_len)) {
-                PYCAI_ERROR("convert 264 to ts fail.");
-            }
-            enc->Destroy();
-        }
-        
-
         std::string m3u8 = std::string("#EXTM3U\r\n") // must start with this
                             + "#EXT-X-VERSION:3\r\n" // use version 3
                             + "#EXT-X-TARGETDURATION:10\r\n" // max duration of ts is 5s
@@ -120,7 +108,7 @@ private:
                             //+ "#EXT-X-DISCONTINUITY\r\n" // discontinuity exist
                             + "#EXTINF:" + std::to_string(duration_) + ",\r\n" // duration of the start ts clip
                             + std::to_string(staSeq_ + 2) + "playlist.ts\r\n"; // the start ts clip
-        std::string resp = std::string("HTTP/1.1 200 OKi\r\n")
+        std::string resp = std::string("HTTP/1.1 200 OK\r\n")
                             + "content-type: application/vnd.apple.mpegURL\r\n"
                             + "Access-Control-Allow-Origin: *\r\n"
                             + "Access-Control-Allow-Methods: GET, POST, PUT\r\n"
@@ -139,15 +127,31 @@ private:
 
     bool HandleTS(char* buf, int& len)
     {
-        if (len < m_len + 2)
-        {
-            PYCAI_ERROR("input buf len is too small");
+        ITsEncoder* enc = CreateComponentObject<ITsEncoder>("CTsEncoder");
+        if (enc == 0) {
+            PYCAI_ERROR("can not create ts encoder");
             return false;
         }
-        memcpy(buf, m_buf, m_len);
-        buf[m_len] = '\r';
-        buf[m_len+1] = '\n';
-        len = m_len + 2;
+
+        if (m_len <= 0) {
+            m_len = sizeof(m_buf);
+            if (!enc->H264ToTs("test.h264",m_buf, m_len)) {
+                PYCAI_ERROR("convert 264 to ts fail.");
+                m_len = 0;
+            }
+        }
+        enc->Destroy();
+        
+        std::string httpHead = std::string("HTTP/1.1 200 OK\r\n")
+                            + "Access-Control-Allow-Origin: *\r\n"
+                            + "Access-Control-Allow-Methods: GET, POST, PUT\r\n"
+                            + "Content-Length: " + std::to_string(m_len+2) + "\r\n\r\n";
+                            
+        memcpy(buf, httpHead.c_str(), httpHead.size());
+        memcpy(buf + httpHead.size(), m_buf, m_len);
+        buf[httpHead.size() + m_len] = '\r';
+        buf[httpHead.size() + m_len + 1] = '\n';
+        len = httpHead.size() + m_len + 2;
         return true;
     }
 
