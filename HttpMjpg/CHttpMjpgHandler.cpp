@@ -1,5 +1,11 @@
+#include <unistd.h>
 #include <string>
 #include <string.h>
+#include <errno.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "ITcpHandler.h"
 #include "IPycaiLogger.h"
@@ -66,6 +72,8 @@ public:
 
     void Destroy() override
     {
+        m_running = false;
+        sleep(5000);
         delete this;
     }
 
@@ -80,14 +88,24 @@ public:
             return false; 
         }
 
-        HTTP/1.0 200 OK
-        Access-Control-Allow-Origin: *
-        Connection: close
-        Server: MJPG-Streamer/0.2
-        Cache-Control: no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0
-        Pragma: no-cache
-        Expires: Mon, 3 Jan 2000 12:34:56 GMT
-        Content-Type: multipart/x-mixed-replace;boundary=boundarydonotcross        
+        std::string resp = "HTTP/1.0 200 OK\r\n";
+        resp += "Access-Control-Allow-Origin:*\r\n";
+        resp += "Connection: keep-alive\r\n";
+        resp += "Server: MJPG-Streamer/0.2\r\n";
+        resp += "Cache-Control: no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0\r\n";
+        resp += "Pragma: no-cache\r\n";
+        resp += "Expires: Mon, 3 Jan 2000 12 : 34 : 56 GMT\r\n";
+        resp += "Content-Type: multipart/x-mixed-replace;boundary=boundarydonotcross\r\n\r\n";
+        if (respLen <= resp.size())
+        {
+            PYCAI_ERROR("buffer to small");
+            return false;
+        }
+
+        memcpy(respBuf, resp.c_str(), resp.size());
+        respLen = resp.size();
+        StartMediaThread();
+        return true;
     }
 
 private:
@@ -108,30 +126,6 @@ private:
         else return "";
     }
 
-    bool HandleMjpg(char* buf, int& len)
-    {
-        StartMediaThread();
-    }
-
-    IMjpgEncoder* TransCode(const char* h264File)
-    {
-        IMjpgEncoder* ret = CreateComponentObject<IMjpgEncoder>("CMjpgEncoder");
-        if (!ret)
-        {
-            PYCAI_ERROR("can not create mjpg encoder");
-            return 0;
-        }
-
-        if (!ret->H264ToMjpg(h264File))
-        {
-            PYCAI_ERROR("transcode 264 to mjpg fail.");
-            ret->Destroy();
-            return 0;
-        }
-
-        return ret;
-    }
-
     bool StartMediaThread()
     {
         pthread_attr_t attr;
@@ -150,25 +144,66 @@ private:
 
     static void* entry(void* arg)
     {
-        if (arg == nullptr) {
-            PYCAI_ERROR("arg is null.");
+        IMjpgEncoder* enc = CreateComponentObject<IMjpgEncoder>("CMjpgEncoder");
+        if (!enc)
+        {
+            PYCAI_ERROR("can not create mjpg encoder");
             return 0;
         }
-        CHttpMjpgHandler* s = (CHttpMjpgHandler*)arg;
-        s->Loop();
-        return 0;
-    }
- 
-    void Loop()
-    {
-        IMjpgEncoder* enc = TransCode("test.h264");
-        for (int i = 0; m_running && i < enc->GetJpgCount(); i++)
+
+        if (!enc->H264ToMjpg("test.h264"))
+        {
+            PYCAI_ERROR("transcode 264 to mjpg fail.");
+            enc->Destroy();
+            return 0;
+        }
+
+        CHttpMjpgHandler* hdr = (CHttpMjpgHandler*)arg;
+        if (hdr == nullptr) {
+            PYCAI_ERROR("arg is null.");
+            enc->Destroy();
+            return 0;
+        }
+
+        for (int i = 0; hdr->m_running && i < enc->GetJpgCount(); i++)
         {
             sleep(40);//25ms
-            SendOneJpg(enc->GetJpgData(i), enc->GetJpgLen(i));
+            hdr->SendOneJpg(enc->GetJpgData(i), enc->GetJpgLen(i));
         }
+
         enc->Destroy();
-        m_running = false;
+        hdr->m_running = false;
+        return 0;
+    }
+
+    bool SendOneJpg(char* buf, int len)
+    {
+        std::string head = "--boundarydonotcross\r\n";
+        head += "Content-Type: image/jpeg\r\n";
+        head += "Content-Length: " + std::to_string(len) + "\r\n";
+        head += "X-Timestamp: 0.000000\r\n\r\n";
+        SendBuffer(head.c_str(), head.size());
+        SendBuffer(buf, len);
+        return true;
+    }
+
+    bool SendBuffer(char* buf, int len)
+    {
+        if (cliSkt_ < 0)
+        {
+            PYCAI_ERROR("client socket is invalidate.");
+            return false;
+        }
+
+        ssize_t ret = send(cliSkt_, buf, len, 0);
+        int err = errno;
+        if (ret < 0)
+        {
+            PYCAI_ERROR("send data fail, return[%d], error[%s].", ret, strerror(err));
+            return false;
+        }
+
+        return true;
     }
 
     std::string localIp_;
@@ -190,4 +225,3 @@ void CHttpMjpgHandlerInit()
 void CHttpMjpgHandlerUninit()
 {
 }
-
