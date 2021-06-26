@@ -90,7 +90,7 @@ public:
 
         std::string resp = "HTTP/1.0 200 OK\r\n";
         resp += "Access-Control-Allow-Origin:*\r\n";
-        resp += "Connection: keep-alive\r\n";
+        resp += "Connection: close\r\n";
         resp += "Server: MJPG-Streamer/0.2\r\n";
         resp += "Cache-Control: no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0\r\n";
         resp += "Pragma: no-cache\r\n";
@@ -104,8 +104,7 @@ public:
 
         memcpy(respBuf, resp.c_str(), resp.size());
         respLen = resp.size();
-        StartMediaThread();
-        return true;
+        return StartMediaThread();
     }
 
 private:
@@ -144,6 +143,21 @@ private:
 
     static void* entry(void* arg)
     {
+        CHttpMjpgHandler* hdr = (CHttpMjpgHandler*)arg;
+        if (hdr == nullptr) {
+            PYCAI_ERROR("arg is null.");
+            return 0;
+        }
+
+        hdr->m_running = true;
+        void* ret = hdr->Loop(arg);
+        hdr->m_running = false;
+        PYCAI_INFO("exit mjpeg translation thread.");
+        return ret;
+    }
+
+    void* Loop(void* arg)
+    {
         IMjpgEncoder* enc = CreateComponentObject<IMjpgEncoder>("CMjpgEncoder");
         if (!enc)
         {
@@ -158,27 +172,21 @@ private:
             return 0;
         }
 
-        CHttpMjpgHandler* hdr = (CHttpMjpgHandler*)arg;
-        if (hdr == nullptr) {
-            PYCAI_ERROR("arg is null.");
-            enc->Destroy();
-            return 0;
-        }
+        PYCAI_INFO("transcode success, jpeg count[%d]", enc->GetJpgCount());
 
-        for (int i = 0; hdr->m_running && i < enc->GetJpgCount(); i++)
+        for (int i = 0; m_running && i < enc->GetJpgCount(); i++)
         {
             sleep(40);//25ms
-            hdr->SendOneJpg((char*)enc->GetJpgData(i), enc->GetJpgLen(i));
+            SendOneJpg((char*)enc->GetJpgData(i), enc->GetJpgLen(i));
         }
 
         enc->Destroy();
-        hdr->m_running = false;
         return 0;
     }
 
     bool SendOneJpg(char* buf, int len)
     {
-        std::string head = "--boundarydonotcross\r\n";
+        std::string head = "\r\n--boundarydonotcross\r\n";
         head += "Content-Type: image/jpeg\r\n";
         head += "Content-Length: " + std::to_string(len) + "\r\n";
         head += "X-Timestamp: 0.000000\r\n\r\n";
@@ -199,8 +207,12 @@ private:
         int err = errno;
         if (ret < 0)
         {
-            PYCAI_ERROR("send data fail, return[%d], error[%s].", ret, strerror(err));
+            PYCAI_ERROR("send data fail, socket[%d], return[%d], error[%s].", cliSkt_, ret, strerror(err));
             return false;
+        }
+        else
+        {
+            PYCAI_DEBUG("send data success, socket[%d], return[%d], error[%s].", cliSkt_, ret, strerror(err));
         }
 
         return true;

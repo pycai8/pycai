@@ -130,7 +130,7 @@ private:
             return;
         }
 
-        PYCAI_INFO("CTcpSession(%s:%d <--> %s:%d) running ...", ip, port, tempIp.c_str(), tempPort);
+        PYCAI_INFO("CTcpSession(socket:%d, %s:%d <--> %s:%d) running ...", tempSkt, ip, port, tempIp.c_str(), tempPort);
     }
 
 private:
