@@ -1,6 +1,7 @@
 #include <string>
 #include <string.h>
 #include <errno.h>
+#include <vector>
 
 #include "IMjpgEncoder.h"
 #include "IPycaiLogger.h"
@@ -14,6 +15,10 @@ public:
         CFactory()
         {
             RegisterFactory();
+            avcodec_register_all();
+            av_register_all();
+            m_decCodec = avcodec_find_decoder(AV_CODEC_ID_H264);
+            m_encCodec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
         }
         virtual ~CFactory()
         {
@@ -27,12 +32,34 @@ public:
 
         IUnknowObject* Create()
         {
-            return new CMjpgEncoder();
+            return new CMjpgEncoder(m_decCodec, m_encCodec);
         }
+
+    private:
+        AVCodec* m_decCodec;
+        AVCodec* m_encCodec;
     };
 
-    CMjpgEncoder() {}
-    virtual ~CMjpgEncoder() {}
+    CMjpgEncoder(AVCodec* dec, AVCodec* enc) 
+    {
+        m_decCodec = dec;
+        m_encCodec = enc;
+        m_decContext = avcodec_alloc_context3(m_decCodec);
+        m_encContext = avcodec_alloc_context3(m_encCodec);
+        avcodec_open2(m_decContext, m_decCodec, 0);
+        avcodec_open2(m_encContext, m_encCodec, 0);
+    }
+    virtual ~CMjpgEncoder() 
+    {
+        for (int i = 0; i < m_vecOut.size(); i++)
+        {
+            av_packet_unref(m_vecOut[i]);
+            av_packet_free(m_vecOut[i]);
+        }
+        m_vecOut.clear();
+        avcodec_free_context(m_encContext);
+        avcodec_free_context(m_decContext);
+    }
 
     const char* GetConfig(const char*) const override
     {
@@ -84,6 +111,23 @@ public:
         fpSrc = 0;
         return true;
     }
+    
+    int GetJpgCount() const
+    {
+        return m_vecOut.size();
+    }
+
+    virtual int GetJpgLen(int index) const
+    {
+        return m_vecOut[index]->size;
+    }
+
+    virtual const char* GetJpgData(int index) const
+    {
+        return m_vecOut[index]->data;
+    }
+
+private:
 
     bool ReadOneFrame(FILE* fp, uint8_t* inBuf, int inLen, uint8_t** outBuf, int* outLen)
     {
@@ -120,13 +164,38 @@ public:
 
     bool WriteOneFrame(uint8_t* buf, int len, uint8_t naluType)
     {
+        AVPacket* pkt = av_packet_alloc();
+        av_packet_from_data(pkt, buf, len);
+        avcodec_send_packet(m_decContext, pkt);
+        AVFrame* frame = av_frame_alloc();
+        while (avcodec_receive_frame(m_decContext, frame) >= 0)
+        {
+            AVPacket* out = av_packet_alloc();
+            avcodec_send_frame(m_encContext, frame);
+            while (avcodec_receive_packet(m_encContext, out) >= 0)
+            {
+                m_vecOut.push_back(av_packet_clone(out));
+                av_packet_unref(out);
+            }
+            av_packet_unref(out);
+            av_packet_free(out);
+            av_frame_unref(frame);
+        }
+        av_frame_unref(frame);
+        av_frame_free(frame);
+        av_packet_unref(pkt);
+        av_packet_free(pkt);
         return true;
     }
 
-private:
     uint64_t timestamp_ = 0;
     uint64_t pcr_ = 0;
     int cc_ = 0;
+    AVCodec* m_decCodec;
+    AVCodec* m_encCodec;
+    AVCodecContext* m_decContext;
+    AVCodecContext* m_encContext;
+    std::vector<AVPacket*> m_vecOut;
 };
 
 void CMjpgEncoderInit()
