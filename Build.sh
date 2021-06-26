@@ -17,6 +17,9 @@ sh Build.sh
 cd ../Hls
 sh Build.sh
 
+cd ../HttpMjpg
+sh Build.sh
+
 cd ../Test
 sh Build.sh
 

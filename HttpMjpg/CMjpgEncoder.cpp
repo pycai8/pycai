@@ -3,8 +3,34 @@
 #include <errno.h>
 #include <vector>
 
+extern "C"
+{
+#include "libavcodec/avcodec.h"
+#include "libavutil/log.h"
+}
+
 #include "IMjpgEncoder.h"
 #include "IPycaiLogger.h"
+
+//LEVEL_DEBUG = 0, LEVEL_INFO, LEVEL_WARN, LEVEL_ERROR, LEVEL_FATAL
+static int cvtLogLevel(int level)
+{
+    switch (level)
+    {
+        case AV_LOG_FATAL     : return LEVEL_FATAL;
+        case AV_LOG_ERROR     : return LEVEL_ERROR;
+        case AV_LOG_WARNING   : return LEVEL_WARN;
+        case AV_LOG_INFO      : return LEVEL_INFO;
+        case AV_LOG_DEBUG     : return LEVEL_DEBUG;
+        case AV_LOG_TRACE     : return LEVEL_DEBUG;
+        default               : return LEVEL_DEBUG;
+    }
+    return LEVEL_INFO;
+}
+
+static void ffmpeg_logoutput(void* ptr, int level, const char* fmt, va_list vl){
+   PYCAI_LOGGER(cvtLogLevel(level), fmt); 
+}
 
 class CMjpgEncoder : public IMjpgEncoder
 {
@@ -16,9 +42,9 @@ public:
         {
             RegisterFactory();
             avcodec_register_all();
-            av_register_all();
             m_decCodec = avcodec_find_decoder(AV_CODEC_ID_H264);
             m_encCodec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
+            av_log_set_callback(ffmpeg_logoutput);
         }
         virtual ~CFactory()
         {
@@ -48,17 +74,26 @@ public:
         m_encContext = avcodec_alloc_context3(m_encCodec);
         avcodec_open2(m_decContext, m_decCodec, 0);
         avcodec_open2(m_encContext, m_encCodec, 0);
+    
+        /* put sample parameters */
+        m_encContext->bit_rate = 500000;
+        /* resolution must be a multiple of two */
+        m_encContext->width = 352;
+        m_encContext->height = 288;
+        /* frames per second */
+        m_encContext->time_base = (AVRational){1, 25};
+        m_encContext->framerate = (AVRational){25, 1};
     }
     virtual ~CMjpgEncoder() 
     {
         for (int i = 0; i < m_vecOut.size(); i++)
         {
             av_packet_unref(m_vecOut[i]);
-            av_packet_free(m_vecOut[i]);
+            av_packet_free(&m_vecOut[i]);
         }
         m_vecOut.clear();
-        avcodec_free_context(m_encContext);
-        avcodec_free_context(m_decContext);
+        avcodec_free_context(&m_encContext);
+        avcodec_free_context(&m_decContext);
     }
 
     const char* GetConfig(const char*) const override
@@ -124,7 +159,7 @@ public:
 
     virtual const char* GetJpgData(int index) const
     {
-        return m_vecOut[index]->data;
+        return (const char*) m_vecOut[index]->data;
     }
 
 private:
@@ -143,10 +178,10 @@ private:
         int end = -1;
         for (int i = 0; i < sz; ++i) {
             if (i + 2 < sz && inBuf[i + 0] == 0 && inBuf[i + 1] == 0 && inBuf[i + 2] == 1) {
-                if (start == -1) start = i + 3;
+                if (start == -1) { start = i; i += 2; }
                 else if (end == -1) { end = i; break; }
             } else if (i + 3 < sz && inBuf[i + 0] == 0 && inBuf[i + 1] == 0 && inBuf[i + 2] == 0 && inBuf[i + 3] == 1) {
-                if (start == -1) start = i + 4;
+                if (start == -1) { start = i; i += 3; }
                 else if (end = -1) { end = i; break; }
             }
         }
@@ -165,26 +200,64 @@ private:
     bool WriteOneFrame(uint8_t* buf, int len, uint8_t naluType)
     {
         AVPacket* pkt = av_packet_alloc();
-        av_packet_from_data(pkt, buf, len);
-        avcodec_send_packet(m_decContext, pkt);
-        AVFrame* frame = av_frame_alloc();
-        while (avcodec_receive_frame(m_decContext, frame) >= 0)
+        if (!pkt)
         {
-            AVPacket* out = av_packet_alloc();
-            avcodec_send_frame(m_encContext, frame);
-            while (avcodec_receive_packet(m_encContext, out) >= 0)
-            {
-                m_vecOut.push_back(av_packet_clone(out));
-                av_packet_unref(out);
-            }
-            av_packet_unref(out);
-            av_packet_free(out);
-            av_frame_unref(frame);
+            PYCAI_ERROR("av packet alloc fail");
+            return false;
         }
-        av_frame_unref(frame);
-        av_frame_free(frame);
-        av_packet_unref(pkt);
-        av_packet_free(pkt);
+
+        int ret =av_packet_from_data(pkt, buf, len);
+        if (ret != 0) 
+        {
+            PYCAI_ERROR("av packet from data fail, return[%d]", ret);
+            av_free(pkt);
+            return false;
+        }
+
+        ret = avcodec_send_packet(m_decContext, pkt);
+        if (ret != 0)
+        {
+            PYCAI_ERROR("send packet fail, return[%d]", ret);
+            av_free(pkt);
+            return true;
+        }
+
+        AVFrame* frame = av_frame_alloc();
+        if (!frame)
+        {
+            PYCAI_ERROR("av frame alloc fail");
+            av_free(pkt);
+            return false;
+        }
+
+        while (avcodec_receive_frame(m_decContext, frame) == 0)
+        {
+            ret = avcodec_send_frame(m_encContext, frame);
+            if (ret != 0)
+            {
+                PYCAI_ERROR("avcodec send frame fail, return[%d]", ret);
+                break;
+            }
+
+            AVPacket* out = av_packet_alloc();
+            if (!out)
+            {
+                PYCAI_ERROR("av packet alloc fail");
+                break;
+            }
+
+            while (avcodec_receive_packet(m_encContext, out) == 0)
+            {
+                AVPacket* tmp = av_packet_clone(out);
+                if (tmp) m_vecOut.push_back(tmp);
+                else PYCAI_WARN("av packet clone fail");
+            }
+
+            av_packet_free(&out);
+        }
+
+        av_frame_free(&frame);
+        av_free(pkt);
         return true;
     }
 

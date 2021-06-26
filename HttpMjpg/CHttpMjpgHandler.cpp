@@ -130,15 +130,15 @@ private:
     {
         pthread_attr_t attr;
         int ret = pthread_attr_init(&attr);
-        if (ret != 0) PYCAI_ERROR("pthread_attr_init fail, socket[%d], ret[%d]", skt_, ret);
+        if (ret != 0) PYCAI_ERROR("pthread_attr_init fail, socket[%d], ret[%d]", cliSkt_, ret);
         ret = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-        if (ret != 0) PYCAI_ERROR("pthread_attr_setdetachstate fail, socket[%d], ret[%d]", skt_, ret);
+        if (ret != 0) PYCAI_ERROR("pthread_attr_setdetachstate fail, socket[%d], ret[%d]", cliSkt_, ret);
 
         pthread_t th;
         int result = pthread_create(&th, &attr, entry, this);
-        if (result != 0) PYCAI_ERROR("pthread_create fail, socket[%d], ret[%d]", skt_, result);
+        if (result != 0) PYCAI_ERROR("pthread_create fail, socket[%d], ret[%d]", cliSkt_, result);
         ret = pthread_attr_destroy(&attr);
-        if (ret != 0) PYCAI_ERROR("pthread_attr_destroy fail, socket[%d], ret[%d]", skt_, ret);
+        if (ret != 0) PYCAI_ERROR("pthread_attr_destroy fail, socket[%d], ret[%d]", cliSkt_, ret);
         return (result == 0); // equal to thread create success.
     }
 
@@ -168,7 +168,7 @@ private:
         for (int i = 0; hdr->m_running && i < enc->GetJpgCount(); i++)
         {
             sleep(40);//25ms
-            hdr->SendOneJpg(enc->GetJpgData(i), enc->GetJpgLen(i));
+            hdr->SendOneJpg((char*)enc->GetJpgData(i), enc->GetJpgLen(i));
         }
 
         enc->Destroy();
@@ -182,7 +182,7 @@ private:
         head += "Content-Type: image/jpeg\r\n";
         head += "Content-Length: " + std::to_string(len) + "\r\n";
         head += "X-Timestamp: 0.000000\r\n\r\n";
-        SendBuffer(head.c_str(), head.size());
+        SendBuffer((char*)head.c_str(), head.size());
         SendBuffer(buf, len);
         return true;
     }
