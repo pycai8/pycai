@@ -166,13 +166,14 @@ public:
             int outLen = 0;
             if (!ReadOneFrame(fpSrc, inBuf, inLen, &outBuf, &outLen)) {
                 PYCAI_ERROR("read one frame fail.");
+                WriteNullFrame();
                 break;
             }
             uint8_t naluHeader = outBuf[0];
             uint8_t naluType = naluHeader & 0x1f;
             if (naluType != 7 && naluType != 8) { // not sps and not pps
-                timestamp_ += 90000 / 25; // 90000 clock rate, 25 frame rate
-                pcr_ += 27000000ull / 25; // 27m clock rate, 25 frame rate
+                // timestamp_ += 90000 / 25; // 90000 clock rate, 25 frame rate
+                // pcr_ += 27000000ull / 25; // 27m clock rate, 25 frame rate
             }
             if (!WriteOneFrame(outBuf, outLen, naluType)) {
                 PYCAI_ERROR("write one frame fail");
@@ -302,9 +303,80 @@ private:
         return true;
     }
 
-    uint64_t timestamp_ = 0;
-    uint64_t pcr_ = 0;
-    int cc_ = 0;
+    bool WriteNullFrame()
+    {
+        int ret = avcodec_send_packet(m_decContext, 0);
+        if (ret != 0)
+        {
+            PYCAI_ERROR("send packet fail, return[%d]", ret);
+            return true;
+        }
+
+        AVFrame* frame = av_frame_alloc();
+        if (!frame)
+        {
+            PYCAI_ERROR("av frame alloc fail");
+            return false;
+        }
+
+        while (avcodec_receive_frame(m_decContext, frame) == 0)
+        {
+            ret = avcodec_send_frame(m_encContext, frame);
+            if (ret != 0)
+            {
+                PYCAI_ERROR("avcodec send frame fail, return[%d]", ret);
+                break;
+            }
+
+            AVPacket* out = av_packet_alloc();
+            if (!out)
+            {
+                PYCAI_ERROR("av packet alloc fail");
+                break;
+            }
+
+            while (avcodec_receive_packet(m_encContext, out) == 0)
+            {
+                AVPacket* tmp = av_packet_clone(out);
+                if (tmp) m_vecOut.push_back(tmp);
+                else PYCAI_WARN("av packet clone fail");
+            }
+
+            av_packet_free(&out);
+        }
+
+        av_frame_free(&frame);
+
+        do
+        {
+            ret = avcodec_send_frame(m_encContext, 0);
+            if (ret != 0)
+            {
+                PYCAI_ERROR("avcodec send frame fail, return[%d]", ret);
+                break;
+            }
+
+            AVPacket* out = av_packet_alloc();
+            if (!out)
+            {
+                PYCAI_ERROR("av packet alloc fail");
+                break;
+            }
+
+            while (avcodec_receive_packet(m_encContext, out) == 0)
+            {
+                AVPacket* tmp = av_packet_clone(out);
+                if (tmp) m_vecOut.push_back(tmp);
+                else PYCAI_WARN("av packet clone fail");
+            }
+
+            av_packet_free(&out);
+
+        } while (0);
+
+        return true;
+    }
+
     AVCodec* m_decCodec;
     AVCodec* m_encCodec;
     AVCodecContext* m_decContext;

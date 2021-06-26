@@ -176,7 +176,7 @@ private:
 
         for (int i = 0; m_running && i < enc->GetJpgCount(); i++)
         {
-            sleep(40);//25ms
+            usleep(40*1000);//25f/s => 40ms/f
             SendOneJpg((char*)enc->GetJpgData(i), enc->GetJpgLen(i));
         }
 
@@ -209,10 +209,6 @@ private:
         {
             PYCAI_ERROR("send data fail, socket[%d], return[%d], error[%s].", cliSkt_, ret, strerror(err));
             return false;
-        }
-        else
-        {
-            PYCAI_DEBUG("send data success, socket[%d], return[%d], error[%s].", cliSkt_, ret, strerror(err));
         }
 
         return true;
