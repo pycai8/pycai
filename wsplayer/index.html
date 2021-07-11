@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <script src="./flv.js"></script>
+    </head>
+    <body>
+        <canvas id="canvas" style="width: 300px; height: 300px; border: 1px solid black"></canvas>
+        <video id="flvDomId" style="width: 300px; height: 300px; border: 1px solid black"></video><br/>
+        websocket地址：<br/>
+        <input id="websocketAddress" type="text" value="ws://localhost:8080/ws?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJlODIyMjFhYy0yM2QwLTQwMmYtOTIwMi0wZDAyM2E3ZmYxMzYiLCJpc3MiOiJ2aWRlbzExMC5jbiIsImF1ZCI6IjJkd3pidzlibzJheXJieXJudHlmOHRsZGxzNGRjanE2IiwiaWF0IjoxNjI1MTg5MzcyLCJleHAiOjE2NTY3MjUzNzJ9.ujyvilNN88W-zId4EDSRajjZwrGX9YFnA_Bb_iKnUaU"/><br/>
+        <input id="startH264Video" type="button" onclick="startH264Video()" value="startH264Video"/>
+        <input id="startFlvVideo" type="button" onclick="startFlvVideo()" value="startFlvVideo"/>
+        <input type="button" onclick="stopVideo()" value="stopVideo"/><br/>
+        <input id="startTalk" type="button" onclick="startTalk()" value="startTalk"/>
+        <input type="button" onclick="stopTalk()" value="stopTalk"/><br/>
+    </body>
+
+<script type="text/javascript">
+    const video = function(websocketAddress, videoDom){
+        // 命令id
+        this.cmdId = 0;
+        // 通道
+        this.ws = null;
+        // 通道地址
+        this.websocketAddress = websocketAddress;
+        // 视频显示dom
+        this.videoDom = videoDom;
+        // wasm解码器
+        this.decoder = new Worker('./wasm_player.js');
+        this.deviceCode = null;
+        this.channel = null;
+        this.subtype = null;
+        this.format = null;
+        this.pinger = null;
+        this.pongChecker = null;
+        this.startVideo = (deviceCode, channel, subtype, format) => {
+            // 建立连接
+            if(this.ws){
+                console.error("视频播放中！");
+                return;
+            }
+            this.ws = new WebSocket(this.websocketAddress);
+            this.ws.binaryType = 'arraybuffer';
+            this.ws.onopen = () => {
+                this.deviceCode = deviceCode;
+                this.channel = channel;
+                this.subtype = subtype;
+                this.format = format;
+
+                if(this.format === 'flv'){
+                    const flvPlayer = flvjs.createPlayer({
+                        isLive: true,
+                        type: 'flv',
+                        url: websocketAddress,
+                        wsHolder: this.ws
+                    });
+                    flvPlayer.attachMediaElement(this.videoDom);
+                    flvPlayer.load();
+                    flvPlayer.play();
+                }
+                // ping
+                this.ping();
+                // 渲染视频
+                this.decoder.onmessage = (e) => {
+                    if (e.data.type !== 'vframe'){
+                        return;
+                    }
+                    /* 创建ImageData对象 渲染到canvas上 */
+                    const img = new ImageData(new Uint8ClampedArray(e.data.data), e.data.width, e.data.height);
+                    this.videoDom.width = img.width;
+                    this.videoDom.height = img.height;
+                    const ctx = this.videoDom.getContext('2d', { alpha: false });
+                    ctx.putImageData(img, 0, 0);
+                };
+                const msg = {
+                    "cmd": "startPlaying",
+                    "deviceCode": deviceCode,
+                    "channel": channel,
+                    "subtype": subtype,
+                    "format": format,
+                    "startTime": null,
+                    "endTime": null,
+                };
+                this.sendMessage(msg);
+            };
+            this.ws.onmessage = (e) => {
+                // nalu
+                if(e.data instanceof ArrayBuffer){
+                    if(this.format === 'rawH264'){
+                        this.decoder.postMessage({ type: "video", data: e.data });
+                    }else if(this.format === 'flv'){
+                        this.ws.flvMessage(e);
+                    }
+                }else{
+                    const response = JSON.parse(e.data);
+                    console.info(response);
+                    if(response.status === false){
+                        alert(response.msg);
+                    }
+                    if(response.cmd === 'pong'){
+                        // 清除重连检查
+                        clearTimeout(this.pongChecker);
+                        this.pongChecker = setTimeout(()=>{
+                            this.stopVideo();
+                            setTimeout(()=>{
+                                this.startVideo(this.deviceCode, this.channel, this.subtype);
+                            }, 1500);
+                        }, 45000);
+                    }
+                }
+            };
+        };
+        this.stopVideo = () => {
+            // 清除重连检查
+            clearTimeout(this.pongChecker);
+            clearInterval(this.pinger);
+            if(this.ws && this.ws.readyState === WebSocket.OPEN){
+                // 关闭对讲
+                const msg = {"cmd": "stopPlaying"};
+                this.sendMessage(msg);
+                setTimeout(()=>{
+                    if(this.format === 'flv'){
+                        this.ws.flvClose();
+                    }
+                    this.ws.close();
+                    this.ws = null;
+                }, 500);
+            }else{
+                this.ws = null;
+            }
+        };
+        this.ping = () => {
+            const pingMsg = { "cmd": "ping"};
+            this.ws.send(JSON.stringify(pingMsg));
+            this.pinger = setInterval(()=>{
+                if(this.ws && this.ws.readyState === WebSocket.OPEN){
+                    this.ws.send(JSON.stringify(pingMsg));
+                }
+            }, 25000);
+
+        };
+        this.sendMessage = (msg) => {
+            if(this.ws && this.ws.readyState === WebSocket.OPEN){
+                msg.id = ++ this.cmdId;
+                this.ws.send(JSON.stringify(msg));
+            }else{
+                alert("ws未连接服务器！");
+            }
+        }
+    }
+
+
+    const talk = function(websocketAddress){
+        // cmd id
+        this.cmdId = 0;
+        // 通道
+        this.ws = null;
+        // 通道地址
+        this.websocketAddress = websocketAddress;
+        // 待播放音频
+        this.playBuffer = new Array();
+        // 值越小onaudioprocess调用越频繁
+        this.audioProcessBufferSize = 2048;
+        // 音频上下文
+        this.audioCtx = null;
+        // 麦克风音频处理
+        this.aisrc = null;
+        // 音响音频播放处理
+        this.aipro = null;
+        // PCM采样率与声卡采样率比例  PCM采样频率为8000，需要把G.711u的样本 扩展到与声卡的采样频率一致
+        this.sampleRateScale = 6;
+        this.pinger = null;
+        this.pongChecker = null;
+        this.decodeTable = [0,132,396,924,1980,4092,8316,16764];
+        this.encodeTable = [0,0,1,1,2,2,2,2,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
+            6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+            7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+            7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7];
+        this.deviceCode = null;
+        this.startTalk = (deviceCode) => {
+            if(this.ws){
+                console.error("正在对讲中！");
+                return;
+            }
+            navigator.mediaDevices.getUserMedia({ audio: true }).then((stream)=>{
+                if(!this.websocketAddress){
+                    alert("websocket地址为空！");
+                    return;
+                }
+                this.ws = new WebSocket(this.websocketAddress);
+                this.ws.binaryType = 'arraybuffer';
+                this.ws.onopen = () => {
+                    this.deviceCode = deviceCode;
+                    // 开始对讲
+                    const msg = {
+                        "cmd": "startTalking",
+                        "deviceCode": deviceCode,
+                    };
+                    this.sendMessage(msg);
+                    // ping
+                    this.ping();
+                    // 环境准备
+                    this.audioCtx = new AudioContext();
+                    this.sampleRateScale = this.audioCtx.sampleRate / 8000;
+                    // 重置音频环境
+                    this.audioCtx.resume();
+                    // 创建音频处理器
+                    this.aisrc = this.audioCtx.createMediaStreamSource(stream);
+                    // 缓冲区大小；输入声道；输出声道
+                    this.aipro = this.audioCtx.createScriptProcessor(this.audioProcessBufferSize, 1, 1);
+                    // 音频处理，connect触发
+                    this.aipro.onaudioprocess = (e) => {
+                        this.encode(e.inputBuffer.getChannelData(0));
+                        if (this.playBuffer.length) {
+                            e.outputBuffer.getChannelData(0).set(this.playBuffer.shift());
+                        }
+                    }
+                    // 建立音频流转链路
+                    this.aisrc.connect(this.aipro);
+                    this.aipro.connect(this.audioCtx.destination);
+                };
+                this.ws.onmessage = (e) => {
+                    if(e.data instanceof ArrayBuffer){
+                        this.decode(new Uint8Array(e.data));
+                    }else{
+                        const response = JSON.parse(e.data);
+                        console.info(response);
+                        if(response.status === false){
+                            alert(response.msg);
+                        }
+                        if(response.cmd === 'pong'){
+                            // 清除重连检查
+                            clearTimeout(this.pongChecker);
+                            this.pongChecker = setTimeout(()=>{
+                                this.stopTalk();
+                                setTimeout(()=>{
+                                    this.startTalk(this.deviceCode);
+                                }, 1500);
+                            }, 45000);
+                        }
+                    }
+                };
+            }).catch(()=>{
+                alert("无权获取麦克风!");
+            });
+        };
+        this.stopTalk = (deviceCode) => {
+            // 清除重连检查
+            clearTimeout(this.pongChecker);
+            clearInterval(this.pinger);
+            if(this.ws && this.ws.readyState === WebSocket.OPEN){
+                // 关闭对讲
+                const msg = {"cmd": "stopTalking", "deviceCode": deviceCode };
+                this.sendMessage(msg);
+                setTimeout(()=>{
+                    this.ws.close();
+                    this.ws = null;
+                    }, 500);
+            }else{
+                this.ws = null;
+            }
+            if(this.aisrc){
+                this.aisrc.disconnect(this.aipro);
+                this.aipro.disconnect(this.audioCtx.destination);
+                this.aisrc = null;
+                this.aisrc = null;
+            }
+            if(this.audioCtx){
+                this.audioCtx.close();
+                this.audioCtx = null;
+            }
+            this.playBuffer.length = 0;
+        };
+        this.ping = () => {
+            const pingMsg = { "cmd": "ping"};
+            this.ws.send(JSON.stringify(pingMsg));
+            this.pinger = setInterval(()=>{
+                if(this.ws && this.ws.readyState === WebSocket.OPEN){
+                    this.ws.send(JSON.stringify(pingMsg));
+                }
+            }, 1000);
+        };
+        this.sendMessage = (msg) => {
+            if(this.ws && this.ws.readyState === WebSocket.OPEN){
+               if(msg instanceof Uint8Array){
+                   this.ws.send(msg);
+               }else{
+                   msg.id = ++ this.cmdId;
+                   this.ws.send(JSON.stringify(msg));
+               }
+            }
+        };
+        this.encode = (data) => {
+            if(data[0] === 0){
+                return;
+            }
+            let sendMsgBuffer = new Array();
+            let sampleSum = 0;
+            for (let i = 0; i < data.length; i ++) {
+                sampleSum += data[i];
+                if(i % this.sampleRateScale === 0){
+                    // 声卡采样取平均值
+                    let sampleRange = sampleSum/this.sampleRateScale;
+                    sampleSum = 0;
+                    // audiobuffer中float =》16位PCM数据
+                    sampleRange = sampleRange * 32768;
+                    // G.711u
+                    let sign, exponent, mantissa;
+                    sign = (sampleRange >> 8) & 0x80;
+                    if (sign != 0) sampleRange = -sampleRange;
+                    sampleRange = sampleRange + 0x84;
+                    if (sampleRange > 32635) sampleRange = 32635;
+                    exponent = this.encodeTable[(sampleRange>>7) & 0xFF];
+                    mantissa = (sampleRange >> (exponent+3)) & 0x0F;
+                    const g711uSample =  ~(sign | (exponent << 4) | mantissa);
+                    sendMsgBuffer.push(g711uSample);
+                }
+            }
+            // websocket发送到服务器
+            if(this.ws && this.ws.readyState === WebSocket.OPEN){
+                this.sendMessage(new Uint8Array(sendMsgBuffer));
+            }
+        };
+        this.decode = (data) => {
+            let sample = new Float32Array(this.audioProcessBufferSize);
+            let index = 0;
+            let last = 0;
+            // 循环文件，处理G.711
+            for (let i = 0; i < data.length; i++) {
+                // decodeSample 将8位G.711u编码 解码为 16位 pcm
+                let uLawSample =  data[i];
+                // G.711u编码
+                let sign, exponent, mantissa, sampleItem;
+                uLawSample = ~uLawSample;
+                sign = (uLawSample & 0x80);
+                exponent = (uLawSample >> 4) & 0x07;
+                mantissa = uLawSample & 0x0F;
+                sampleItem = this.decodeTable[exponent] + (mantissa << (exponent+3));
+                if (sign != 0) {
+                    sampleItem = -sampleItem;
+                }
+                // pcm/32767 16位pcm除以2的16次方，生成 -1~1 的32位的浮点，audioBuffer使用
+                const decodeResult = sampleItem/ 32767;
+                // 采样率调整
+                for (let j = 1; j <= this.sampleRateScale; j++) {
+                    // 插值：以上一次样本开始，依次递增，最后一个值为本次样本值
+                    sample[index++] = last + (decodeResult - last) * j / this.sampleRateScale;
+                    // 数据量够了 放入缓存
+                    if (index >= sample.length) {
+                        index = 0;
+                        this.playBuffer.push(new Float32Array(sample));
+                    }
+                }
+                last = decodeResult;
+            }
+        }
+    }
+
+    let websocketAddress = null;
+    let myH264Video = null;
+    function startH264Video(){
+        websocketAddress = document.getElementById("websocketAddress").value;
+        myH264Video = new video(websocketAddress, document.getElementById("canvas"));
+        const deviceCode = "", channel = "", subtype = 0, format = 'rawH264';
+        myH264Video.startVideo(deviceCode, channel, subtype, format);
+        document.getElementById("startH264Video").disabled = "disabled";
+    }
+
+    let myFlvVideo = null;
+    function startFlvVideo(){
+        websocketAddress = document.getElementById("websocketAddress").value;
+        myFlvVideo = new video(websocketAddress, document.getElementById("flvDomId"));
+        const deviceCode = "", channel = "", subtype = 0, format = 'flv';
+        myFlvVideo.startVideo(deviceCode, channel, subtype, format);
+        document.getElementById("startFlvVideo").disabled = "disabled";
+    }
+
+    function stopVideo(){
+        if(myH264Video && myH264Video.ws){
+            myH264Video.stopVideo();
+            document.getElementById("startH264Video").disabled = false;
+        }
+        if(myFlvVideo && myFlvVideo.ws){
+            myFlvVideo.stopVideo();
+            document.getElementById("startFlvVideo").disabled = false;
+        }
+    }
+
+    let myTalk = null;
+    function startTalk(){
+        websocketAddress = document.getElementById("websocketAddress").value;
+        myTalk = new talk(websocketAddress);
+        const deviceCode = "";
+        myTalk.startTalk(deviceCode);
+        document.getElementById("startTalk").disabled = "disabled";
+    }
+    function stopTalk(){
+        if(myTalk){
+            myTalk.stopTalk();
+            document.getElementById("startTalk").disabled = false;
+        }
+    }
+</script>
+</html>
