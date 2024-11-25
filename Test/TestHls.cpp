@@ -22,7 +22,7 @@ int main()
 
     PYCAI_INFO("ready to start hls server ...");
     server->SetConfig("handler.class", "CHlsHandler");
-    server->Listen("0.0.0.0", 80);
+    server->Listen("0.0.0.0", 8000);
     return 0;
 }
 

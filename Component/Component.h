@@ -1,6 +1,10 @@
 #ifndef PYCAI_COMPONENT_H_
 #define PYCAI_COMPONENT_H_
 
+#include <pthread.h>
+#include <stdint.h>
+#include <stdarg.h>
+
 class IUnknowObject
 {
 public:
